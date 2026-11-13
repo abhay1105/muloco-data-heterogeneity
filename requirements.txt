@@ -1,0 +1,8 @@
+torch>=2.9
+numpy
+tiktoken
+pyarrow
+huggingface_hub
+pyyaml
+modal
+pytest

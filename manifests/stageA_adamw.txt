@@ -1,0 +1,5 @@
+# Stage A: DP inner-LR sweeps (seed 0, full length). Best run of each = DP seed-0 baseline.
+--method dp_adamw --lr 0.00075 --tag lr0.00075
+--method dp_adamw --lr 0.0015 --tag lr0.0015
+--method dp_adamw --lr 0.003 --tag lr0.003
+--method dp_adamw --lr 0.006 --tag lr0.006

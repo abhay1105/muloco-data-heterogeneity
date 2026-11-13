@@ -1,0 +1,13 @@
+# Stage B: outer (lr, momentum) sweep, IID, H=30, seed 0, half length.
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.5 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo0.5_mu0.6
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.5 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo0.5_mu0.9
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.6
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.9
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 1 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo1_mu0.6
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 1 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo1_mu0.9
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.5 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo0.5_mu0.6
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.5 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo0.5_mu0.9
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.6
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.9
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 1 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag eo1_mu0.6
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 1 --outer_momentum 0.9 --steps 3750 --save_checkpoint 0 --tag eo1_mu0.9

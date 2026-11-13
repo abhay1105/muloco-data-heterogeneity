@@ -1,0 +1,1 @@
+--method dp_muon --lr 0.0015 --lr_muon 0.024 --tag lrm0.024

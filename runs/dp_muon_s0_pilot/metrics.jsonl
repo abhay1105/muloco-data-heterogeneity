@@ -1,0 +1,8 @@
+{"kind": "start", "time": 1794558797.37, "run_id": "dp_muon_s0_pilot", "device": "cuda", "params": {"total": 50930176, "embedding": 25755648, "non_embedding": 25174528, "hidden_matrices": 25165824}, "data_hash": "33c0c658fbf49a8a", "torch": "2.15.0+cu132", "gpu": "NVIDIA H100 80GB HBM3"}
+{"kind": "train", "time": 1794558801.0, "step": 50, "loss": 5.167170524597168, "lr_mult": 0.9878701917609207, "tok_per_s": 902365.3}
+{"kind": "train", "time": 1794558804.62, "step": 100, "loss": 4.216922760009766, "lr_mult": 0.8588087370409302, "tok_per_s": 903656.6}
+{"kind": "train", "time": 1794558808.26, "step": 150, "loss": 3.8961102962493896, "lr_mult": 0.6281416799501187, "tok_per_s": 903402.0}
+{"kind": "train", "time": 1794558811.89, "step": 200, "loss": 3.7856788635253906, "lr_mult": 0.37176410528237946, "tok_per_s": 903038.3}
+{"kind": "train", "time": 1794558815.53, "step": 250, "loss": 3.2895729541778564, "lr_mult": 0.17403048486417869, "tok_per_s": 902387.5}
+{"kind": "train", "time": 1794558819.17, "step": 300, "loss": 3.7576498985290527, "lr_mult": 0.1, "tok_per_s": 902062.9}
+{"kind": "final_eval", "time": 1794558820.65, "step": 300, "arxiv": 3.3421229095458984, "github": 2.872645317077637, "stackexchange": 3.5920429344177247, "wikipedia": 5.367206550598144, "balanced": 3.793504427909851, "worst": 5.367206550598144}

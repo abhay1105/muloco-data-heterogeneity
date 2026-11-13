@@ -1,0 +1,5 @@
+# E0 pilot: throughput + end-to-end check on the GPU (not used for results)
+--method dp_adamw --steps 300 --eval_every 300 --spectral_every 300 --warmup_steps 30 --save_checkpoint 0 --tag pilot
+--method dp_muon --steps 300 --eval_every 300 --spectral_every 300 --warmup_steps 30 --save_checkpoint 0 --tag pilot
+--method diloco --p 1.0 --steps 300 --eval_every 300 --spectral_every 300 --warmup_steps 30 --save_checkpoint 0 --tag pilot
+--method muloco --p 1.0 --steps 300 --eval_every 300 --spectral_every 300 --warmup_steps 30 --save_checkpoint 0 --tag pilot --probe_fracs 0.5
