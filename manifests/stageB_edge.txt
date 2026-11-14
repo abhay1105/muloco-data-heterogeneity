@@ -1,0 +1,5 @@
+# Stage B edge extension: outer momentum below the grid edge (0.6), outer lr 0.8
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0
+--method diloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.3 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.3
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.3 --steps 3750 --save_checkpoint 0 --tag eo0.8_mu0.3

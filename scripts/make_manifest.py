@@ -100,17 +100,16 @@ def main():
             for method in ("diloco", "muloco"):
                 for p in ("0.25", "0.5", "0.75", "1.0"):
                     order.append((seed, f"{cfg} --method {method} --p {p} --seed {seed}"))
-            if seed < 2:
-                for method in ("fedavg_adamw", "fedavg_muon"):
-                    for p in ("0.25", "1.0"):
-                        order.append((seed, f"{cfg} --method {method} --p {p} --seed {seed}"))
+            for method in ("fedavg_adamw", "fedavg_muon"):
+                for p in ("0.25", "1.0"):
+                    order.append((seed, f"{cfg} --method {method} --p {p} --seed {seed}"))
             if seed > 0:
                 for method in ("dp_adamw", "dp_muon"):
                     order.append((seed, f"{cfg} --method {method} --seed {seed}"))
         lines = [l for _, l in order]
-        assert len(lines) == 36, len(lines)
+        assert len(lines) == 40, len(lines)
         if a.parts == 1:
-            write("phase2", lines, "Phase 2 production runs (36). Seed 0 first.")
+            write("phase2", lines, "Phase 2 production runs (40). Seed 0 first.")
         else:  # round-robin so every part gets a share of seed 0
             for i in range(a.parts):
                 write(f"phase2_part{i + 1}", lines[i::a.parts], f"Phase 2, part {i + 1}/{a.parts}")

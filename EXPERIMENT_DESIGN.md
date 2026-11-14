@@ -18,7 +18,7 @@
   3. Heterogeneity skew **p ∈ {0.25 (IID), 0.5, 0.75, 1.0 (one domain per worker)}**.
   - The sync interval is fixed at **H = 30**.
 - **Heterogeneity is controlled by a deterministic skew `p`, not by random Dirichlet draws.** The global data mixture, and therefore the training objective and the DP baselines, stays identical across all heterogeneity levels (see §3.3).
-- **Budget:** **54 runs** (18 for setup and tuning, 36 production), plus ~20% slack. Measured cost on Modal H100s is about **$50 total** (§6.2), mostly covered by the free $30/month per teammate account.
+- **Budget:** **58 runs** (18 for setup and tuning, 40 production), plus ~20% slack. Measured cost on Modal H100s is about **$55 total** (§6.2), mostly covered by the free $30/month per teammate account.
 - **Workflow:**
   - Phase 1 (us): build the codebase, run smoke tests, pilot, and tune LRs.
   - Phase 2 (teammates): run frozen commands on hosted GPUs.
@@ -154,9 +154,9 @@ Method names:
 Plus DP baselines: `{DP-AdamW, DP-Muon} × seeds {1,2}` → **4 runs**. Seed 0 comes from the tuning sweep (§5, stage A). DP results don't depend on p, since the global mixture is fixed.
 
 ### E2: Outer-momentum ablation (answers Q3, H2)
-`{FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × H = 30 × seeds {0,1}` → **8 runs**
+`{FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × H = 30 × seeds {0,1,2}` → **12 runs**
 
-The Nesterov counterparts come from E1 (seeds 0 and 1).
+The Nesterov counterparts come from E1 (seeds 0–2). E2 was raised from 2 to 3 seeds on 2026-11-14 so that H2's error bars are meaningful, as the report requires.
 
 ### Dimensions deliberately *not* varied (and why)
 - **Number of workers K:** fixed at 4, matching the 4 domains.
@@ -244,18 +244,18 @@ A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 | | **Phase 1 subtotal** | | **18 R** |
 | **2 (team)** | E1: {DiLoCo, MuLoCo} × 4 p × seeds 0–2 | 24 | 24 |
 | 2 | DP baselines, seeds 1–2 | 4 | 4 |
-| 2 | E2: {FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × seeds 0–1 | 8 | 8 |
-| | **Phase 2 subtotal** | | **36 R** |
-| | **Total** | | **54 R** (+~10 R slack for reruns or an extra edge-of-grid LR point) |
+| 2 | E2: {FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × seeds 0–2 | 12 | 12 |
+| | **Phase 2 subtotal** | | **40 R** |
+| | **Total** | | **58 R** (+~10 R slack for reruns or an extra edge-of-grid LR point) |
 
 **Phase 2 run order:**
 1. Seed 0 of everything (E1, E2): 12 runs. This alone gives a first answer to H1 and H2.
 2. Remaining seeds.
 
-**If money or time gets tight, cut in this order:** E1 seed 2 at p ∈ {0.5, 0.75} → E2 seed 1. **Never cut** the IID and p = 1.0 points of E1.
+**If money or time gets tight, cut in this order:** E1 seed 2 at p ∈ {0.5, 0.75} → E2 seed 2. **Never cut** the IID and p = 1.0 points of E1.
 
 ### 6.2 Platform, GPU and cost
-**Platform: [Modal](https://modal.com). GPU: H100.**
+**Platform: [Modal](https://modal.com). GPU: H100 for the pilot and Stage A, A100-80GB from Stage B on (see update below).**
 - Modal runs our training function in a cloud GPU container launched from a laptop command, and bills per second only while code runs. Nothing idles, so a forgotten pod can't run up a bill.
 - The Starter plan includes **$30/month of free credit per workspace**, and each teammate's account has its own. That should cover most or all of the project. **Verify on modal.com/pricing.**
 - Up to 10 GPUs can run at once, so each tuning stage finishes in roughly one run's wall-clock time.
@@ -272,10 +272,20 @@ A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 | Phase | Runs | Est. GPU-hours | Est. cost |
 |---|---|---|---|
 | Phase 1 (pilot done; Stage A: 8 full DP; Stages B+C: 16 half-length local) | 24 | ~3.3 h | ~$13 |
-| Phase 2 (36 full runs) | 36 | ~7.5 h | ~$30 |
-| **Total incl. ~20% slack** | | **~13 h** | **~$50** |
+| Phase 2 (40 full runs) | 40 | ~8.3 h | ~$33 |
+| **Total incl. ~20% slack** | | **~14 h** | **~$55** |
 
 Runs are about 2× faster than the original estimate. Every run is well under 30 minutes, so the run budget (§6.1) is unchanged.
+
+**Update 2026-11-14: H100 is no longer available on the Modal Starter plan** (launches queue indefinitely with "H100 unavailable on starter plan"). From Stage B on, runs use **A100-80GB** (~$2.50/hr), now the default in `modal_app.py`.
+
+| A100-80GB (measured in Stage B) | Training speed | Est. full run | ~$ per full run |
+|---|---|---|---|
+| DP | ~350k tok/s (est.) | ~25 min | ~$1.05 |
+| DiLoCo | ~340–390k tok/s | ~28 min | ~$1.15 |
+| MuLoCo | ~290–340k tok/s | ~32 min | ~$1.35 |
+
+Phase 2 (40 runs) comes to **~$45–50**. Split across 3–4 teammates' workspaces, that's about $12–16 each, inside the free $30/month credit. Results don't depend on GPU type; only speed and cost do.
 
 - **Develop for free:** write code and run tiny-config smoke tests and correctness tests on a laptop (CPU or MPS, `--compile 0`). Only spend credits once they pass.
 - **Platform independence:**
@@ -477,10 +487,12 @@ for round r = 0 .. 7500/H − 1:
 
 ## 12. Decisions log
 - ✅ Dirichlet is replaced by the deterministic skew p. The proposal was a draft.
-- ✅ Platform: Modal, H100 GPUs, each teammate on their own free-credit workspace. Development and correctness tests happen locally.
+- ✅ Platform: Modal, each teammate on their own free-credit workspace. GPU: H100 for the pilot and Stage A; **A100-80GB from 2026-11-14** (H100 blocked on the Starter plan). Development and correctness tests happen locally.
 - ✅ Scope: minimal experiment only (E1 + E2 + DP baselines). Everything in "Deferred" waits until that data is collected.
 - ✅ Workflow: we build, test and tune; teammates run frozen commands (§6.3). The collection mechanism will be decided later.
 - ✅ Data built on Modal (2026-11-13): **data_hash = `33c0c658fbf49a8a`**. Each domain has 122,880,001 train, 1,024,001 val and 2,097,153 probe tokens. Every domain hit the 158M collection target (StackExchange needed ~32 of 48 SlimPajama shards). Teammates' `prepare` must reproduce this hash.
+- ✅ Phase 1 tuning complete (2026-11-14). Frozen in `configs/frozen.yaml`: AdamW 1.5e-3 (DP / MuLoCo AdamW part), DiLoCo inner 7.5e-4, Muon 1.2e-2, outer 0.8/0.6 Nesterov for DiLoCo and MuLoCo. Details in RESULTS.md §2.
+- ✅ E2 raised to 3 seeds (2026-11-14), so Phase 2 has 40 runs.
 - ✅ Pilot (2026-11-13): all 4 run types work on H100 with `torch.compile`, and throughput is recorded in §6.2. The pilot is too short to center the LR grids, so Stage A uses the default grids and adds an edge point if needed.
 
 ---

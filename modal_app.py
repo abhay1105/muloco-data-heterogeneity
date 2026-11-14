@@ -21,7 +21,7 @@ import modal
 
 APP_NAME = "muloco"
 DATA_DIR, RUNS_DIR = "/vol/data", "/vol/runs"
-DEFAULT_GPU = "H100"
+DEFAULT_GPU = "A100-80GB"  # H100 is not available on the Modal Starter plan (2026-11-14)
 
 app = modal.App(APP_NAME)
 image = (
@@ -83,7 +83,7 @@ def launch(manifest: str = "", args: str = "", gpu: str = DEFAULT_GPU):
     runs = _read_manifest(manifest, args)
     done = _completed()
     todo = [a for a in runs if _run_id(a) not in done]
-    print(f"{len(runs)} runs in manifest, {len(runs) - len(todo)} already complete, launching {len(todo)} on {gpu}")
+    print(f"{len(runs)} runs in manifest, {len(runs) - len(todo)} already complete, launching {len(todo)} on {gpu}", flush=True)
     fn = train if gpu == DEFAULT_GPU else train.with_options(gpu=gpu)
     for res in fn.map(todo, order_outputs=False, return_exceptions=True):
         print(res if isinstance(res, dict) else f"FAILED: {res!r}", flush=True)

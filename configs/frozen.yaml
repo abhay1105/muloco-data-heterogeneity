@@ -1,0 +1,13 @@
+# FROZEN hyperparameters for Phase 2 (written 2026-11-14 at the end of Phase 1; see RESULTS.md §2).
+# Do not edit after Phase 2 starts. Tuned on IID data only (EXPERIMENT_DESIGN.md §5).
+#   Stage A (DP, full length):         AdamW lr 1.5e-3; Muon lr 1.2e-2 (AdamW part 1.5e-3)
+#   Stage B (IID, H=30, half length):  outer lr 0.8, outer momentum 0.6 (Nesterov) for both methods
+#   Stage C (IID, half length):        DiLoCo inner AdamW lr 7.5e-4 (x0.5); MuLoCo Muon lr unchanged
+# FedAvg arms reuse the inner LRs of their Nesterov counterparts; outer is forced to lr=1, momentum=0.
+methods:
+  dp_adamw:     {lr: 1.5e-3}
+  dp_muon:      {lr: 1.5e-3, lr_muon: 1.2e-2}
+  diloco:       {lr: 7.5e-4, outer_lr: 0.8, outer_momentum: 0.6}
+  muloco:       {lr: 1.5e-3, lr_muon: 1.2e-2, outer_lr: 0.8, outer_momentum: 0.6}
+  fedavg_adamw: {lr: 7.5e-4}
+  fedavg_muon:  {lr: 1.5e-3, lr_muon: 1.2e-2}

@@ -1,0 +1,2 @@
+# Stage C edge extension: DiLoCo inner AdamW lr x0.25 (best of x{0.5,1,2} was at the low edge)
+--method diloco --p 0.25 --lr 0.000375 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag innerx0.25

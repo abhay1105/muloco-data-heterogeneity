@@ -1,0 +1,6 @@
+# Stage C: inner-LR x{0.5,2} check at the best outer config (half length).
+# Compare against the matching stage-B run (inner x1).
+--method diloco --p 0.25 --lr 0.00075 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag innerx0.5
+--method diloco --p 0.25 --lr 0.003 --lr_muon 0.012 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag innerx2
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.006 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag innerx0.5
+--method muloco --p 0.25 --lr 0.0015 --lr_muon 0.024 --outer_lr 0.8 --outer_momentum 0.6 --steps 3750 --save_checkpoint 0 --tag innerx2
