@@ -281,6 +281,9 @@ All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/
 | AdamW | +0.1163 | +0.1045 | +0.0118 |
 | Muon | +0.1300 | +0.1450 | −0.0151 |
 
+### Batch 2a: 4 seed-1 runs (launched 2026-11-15)
+Billing before launch: usage $35.92 ($30 credits + $5.92 charges) of a $42.50 usage limit; spend limit capped at $20. Batch 1 cost ≈ $14.50 (≈ $1.21/run). Batch 2a (`manifests/phase2_batch2a.txt`: DiLoCo/MuLoCo × p ∈ {0.25, 1.0}, seed 1, ≈ $5) fits the remaining room and pushes charges past $10, which triggers Modal's payment and the automatic limit raise. The remaining 24 runs follow once the new limit is known.
+
 **Seed-0 observations (2026-11-15; one seed, so provisional until batch 2):**
 - MuLoCo beats DiLoCo at every p (by 0.104 at IID, 0.064 at p=1.0), but its heterogeneity penalty is larger at every p (+0.145 vs +0.105 at p=1.0). This leans toward the FL (client-drift) prediction of H1. By p=1.0 both sit ~13.7% above their own DP baseline, so MuLoCo's relative advantage over DP vanishes at full skew.
 - The penalty is convex in h for both methods: nearly zero at p=0.5, small at 0.75, large at 1.0.

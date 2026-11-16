@@ -1,0 +1,5 @@
+# Phase 2 batch 2a: 4 seed-1 runs sized to fit the Modal usage limit (triggers the $10 payment that raises it)
+--config configs/frozen.yaml --method diloco --p 0.25 --seed 1
+--config configs/frozen.yaml --method diloco --p 1.0 --seed 1
+--config configs/frozen.yaml --method muloco --p 0.25 --seed 1
+--config configs/frozen.yaml --method muloco --p 1.0 --seed 1
