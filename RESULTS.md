@@ -284,6 +284,20 @@ All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/
 ### Batch 2a: 4 seed-1 runs (launched 2026-11-15)
 Billing before launch: usage $35.92 ($30 credits + $5.92 charges) of a $42.50 usage limit; spend limit capped at $20. Batch 1 cost ≈ $14.50 (≈ $1.21/run). Batch 2a (`manifests/phase2_batch2a.txt`: DiLoCo/MuLoCo × p ∈ {0.25, 1.0}, seed 1, ≈ $5) fits the remaining room and pushes charges past $10, which triggers Modal's payment and the automatic limit raise. The remaining 24 runs follow once the new limit is known.
 
+All 4 finished (20–25 min each), none diverged; backed up (HF hashes verified).
+
+| run | seed 0 | seed 1 |
+|---|---|---|
+| DiLoCo p=0.25 | 2.5172 | 2.5291 |
+| DiLoCo p=1.0 | 2.6217 | 2.6237 |
+| MuLoCo p=0.25 | 2.4130 | 2.4205 |
+| MuLoCo p=1.0 | 2.5580 | 2.5519 |
+| **ΔL_het(p=1.0), DiLoCo** | +0.1045 | +0.0946 |
+| **ΔL_het(p=1.0), MuLoCo** | +0.1450 | +0.1313 |
+| **MuLoCo − DiLoCo penalty** | +0.0405 | +0.0367 |
+
+- (2026-11-15) Seed 1 replicates seed 0: MuLoCo's p=1.0 heterogeneity penalty exceeds DiLoCo's by ≈0.04 on both seeds, while seed-to-seed spread of each final loss is ≈0.002–0.012.
+
 **Seed-0 observations (2026-11-15; one seed, so provisional until batch 2):**
 - MuLoCo beats DiLoCo at every p (by 0.104 at IID, 0.064 at p=1.0), but its heterogeneity penalty is larger at every p (+0.145 vs +0.105 at p=1.0). This leans toward the FL (client-drift) prediction of H1. By p=1.0 both sit ~13.7% above their own DP baseline, so MuLoCo's relative advantage over DP vanishes at full skew.
 - The penalty is convex in h for both methods: nearly zero at p=0.5, small at 0.75, large at 1.0.
