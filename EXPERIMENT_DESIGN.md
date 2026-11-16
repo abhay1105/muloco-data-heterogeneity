@@ -496,6 +496,7 @@ for round r = 0 .. 7500/H − 1:
 - ✅ Phase 1 tuning complete (2026-11-14). Frozen in `configs/frozen.yaml`: AdamW 1.5e-3 (DP / MuLoCo AdamW part), DiLoCo inner 7.5e-4, Muon 1.2e-2, outer 0.8/0.6 Nesterov for DiLoCo and MuLoCo. Details in RESULTS.md §2.
 - ✅ E2 raised to 3 seeds (2026-11-14), so Phase 2 has 40 runs.
 - ✅ Phase 2 runner (2026-11-15): one person runs all 40 runs (costs split at the end) instead of per-teammate manifests; two batches; backups via `scripts/sync_runs.py` to Hugging Face (`paidvenk/muloco-data-heterogeneity`, private until submission). Modal spend limit is capped at $20 for this account until charges build history.
+- ✅ Phase 2 complete (2026-11-15): 40/40 runs, none diverged, all backed up. H1-FL supported by the pre-registered rule (MuLoCo penalty larger, +0.034 at h=0.75); H2 not supported (R_AdamW +0.010 > 0 > R_Muon −0.009). Details in RESULTS.md §3; figures in `figures/`.
 - ✅ Pilot (2026-11-13): all 4 run types work on H100 with `torch.compile`, and throughput is recorded in §6.2. The pilot is too short to center the LR grids, so Stage A uses the default grids and adds an edge point if needed.
 
 ---
