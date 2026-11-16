@@ -4,7 +4,7 @@
     python scripts/make_manifest.py stageA [--adamw_lrs ...] [--muon_lrs ...] [--muon_adam_lr X]
     python scripts/make_manifest.py stageB --lr_adamw X --lr_muon Y            # inner LRs from stage A
     python scripts/make_manifest.py stageC --lr_adamw X --lr_muon Y --diloco_outer LR,MU --muloco_outer LR,MU
-    python scripts/make_manifest.py phase2 [--parts 4]                          # needs configs/frozen.yaml
+    python scripts/make_manifest.py phase2 [--batch2_parts 2]                   # needs configs/frozen.yaml
 
 Then: modal run --detach modal_app.py::launch --manifest manifests/<name>.txt
 """
@@ -46,7 +46,8 @@ def main():
     ap.add_argument("--outer_moms", default="0.6,0.9")
     ap.add_argument("--diloco_outer", default=None, help="LR,MU best for diloco from stage B")
     ap.add_argument("--muloco_outer", default=None, help="LR,MU best for muloco from stage B")
-    ap.add_argument("--parts", type=int, default=1, help="split phase2 into N teammate manifests")
+    ap.add_argument("--batch2_parts", type=int, default=1,
+                    help="split phase2 batch 2 (seeds 1-2) into N smaller launches, e.g. to fit a spend limit")
     a = ap.parse_args()
 
     if a.stage == "pilot":
@@ -108,12 +109,16 @@ def main():
                     order.append((seed, f"{cfg} --method {method} --seed {seed}"))
         lines = [l for _, l in order]
         assert len(lines) == 40, len(lines)
-        if a.parts == 1:
-            write("phase2", lines, "Phase 2 production runs (40). Seed 0 first.")
-        else:  # round-robin so every part gets a share of seed 0
-            for i in range(a.parts):
-                write(f"phase2_part{i + 1}", lines[i::a.parts], f"Phase 2, part {i + 1}/{a.parts}")
-
+        write("phase2", lines, "Phase 2 production runs (40). Seed 0 first.")
+        # Batch 1 = seed 0 of every condition (sanity check before the bulk); batch 2 = seeds 1-2.
+        write("phase2_batch1", [l for s, l in order if s == 0], "Phase 2 batch 1: seed 0 (12 runs)")
+        rest = [l for s, l in order if s > 0]
+        if a.batch2_parts == 1:
+            write("phase2_batch2", rest, "Phase 2 batch 2: seeds 1-2 (28 runs)")
+        else:
+            for i in range(a.batch2_parts):
+                write(f"phase2_batch2{'abcdefgh'[i]}", rest[i::a.batch2_parts],
+                      f"Phase 2 batch 2, part {i + 1}/{a.batch2_parts} (seeds 1-2)")
 
 if __name__ == "__main__":
     main()

@@ -239,15 +239,12 @@ DiLoCo inner-lr profile: ×0.25 → 2.750, **×0.5 → 2.687**, ×1 → 2.734, �
 
 **Phase 1 complete (2026-11-14).** Spend: about $9 on day 1 (pilot + Stage A, H100) and about $11 on day 2 (Stages B and C plus edge points, A100), about $20 in total.
 
-
-### Stage C: inner-LR check. *Not started.*
-
-### Frozen hyperparameters. *Not yet frozen.*
-
 ---
 
-## 3. Phase 2 (production). *Ready to launch.*
-- 40 runs in `manifests/phase2_part{1..4}.txt`, 10 per part, each part including 3 seed-0 runs.
+## 3. Phase 2 (production). *Batch 1 launching 2026-11-15.*
+- 40 runs in `manifests/phase2.txt`, run by one person (team decision 2026-11-15) in two batches: `phase2_batch1.txt` (seed 0, 12 runs) then `phase2_batch2.txt` (seeds 1–2, 28 runs).
+- Backups: `scripts/sync_runs.py` after each batch → `runs/` (laptop), git (logs + `CHECKPOINTS.sha256`), Hugging Face `paidvenk/muloco-data-heterogeneity` (logs + checkpoints). The 34 Phase 1 runs and 9 checkpoints were uploaded on 2026-11-15; all 9 SHA-256 hashes match.
+- Billing (2026-11-15): Modal shows $21.40 used this period (all credits, ~$8.60 credit left), usage limit $42, spend limit $20 (the maximum this account allows for now; it auto-raises after the first $10 card payment).
 - Contents: E1 = {DiLoCo, MuLoCo} × p ∈ {0.25, 0.5, 0.75, 1.0} × seeds 0–2 (24 runs); E2 = {FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × seeds 0–2 (12 runs); DP seeds 1–2 (4 runs).
 - Everything uses `--config configs/frozen.yaml`.
 

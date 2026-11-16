@@ -315,8 +315,8 @@ Phase 2 (40 runs) comes to **~$45–50**. Split across 3–4 teammates' workspac
   4. Stages A–C.
   5. Write `configs/frozen.yaml`.
   6. Produce a **run manifest**: one exact command per Phase 2 run, assigned to a teammate.
-- **Phase 2 (teammates):** one-time setup (`pip install modal`, `modal setup`, clone the repo, run `modal run modal_prepare.py`), then `modal run --detach modal_app.py::launch --manifest <their manifest>`. Each run writes to `muloco-runs/<run_id>/` in their workspace.
-- **Collection:** details to be decided later. Simplest option: each teammate downloads their runs with `modal volume get muloco-runs / runs/` and shares the folders. Each run's folder holds `config.json`, `metrics.jsonl`, `summary.json` and optionally `final.pt`. `analysis/` reads them all.
+- **Phase 2 (one runner, decided 2026-11-15):** the team agreed one person runs all 40 runs on the workspace used for Phase 1, with costs split at the end. Runs go in two batches: `manifests/phase2_batch1.txt` (seed 0, 12 runs, a sanity check against Phase 1) and `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs; can be split with `make_manifest.py phase2 --batch2_parts N` to fit the Modal spend limit).
+- **Collection and backup:** after each batch, `scripts/sync_runs.py` downloads finished runs from the `muloco-runs` volume to `runs/`, verifies them, writes `CHECKPOINTS.sha256`, and uploads everything (logs + checkpoints) to the Hugging Face model repo `paidvenk/muloco-data-heterogeneity`. Logs and checksums are then committed to git. Copies: logs on GitHub, Hugging Face, laptop and Modal; checkpoints on Hugging Face, laptop and Modal. The tokenized data is not archived; it is rebuilt deterministically (pinned revisions, `data_hash`).
 - **Parallelism:** `launch` fans out up to 10 runs at once per workspace.
 
 **Storage:**
@@ -444,7 +444,9 @@ modal run --detach modal_app.py::launch --manifest manifests/stageA.txt
 modal volume get muloco-runs / runs/                # download results
 
 # Phase 2 (after configs/frozen.yaml exists)
-python scripts/make_manifest.py phase2 --parts 3    # one manifest per teammate, seed 0 spread across parts
+python scripts/make_manifest.py phase2              # phase2.txt (40) + phase2_batch1.txt (seed 0) + phase2_batch2.txt
+modal run --detach modal_app.py::launch --manifest manifests/phase2_batch1.txt
+python scripts/sync_runs.py                         # download + verify + checksums + Hugging Face backup
 ```
 
 ### 10.2 Training loop (sequential worker simulation)
@@ -493,6 +495,7 @@ for round r = 0 .. 7500/H − 1:
 - ✅ Data built on Modal (2026-11-13): **data_hash = `33c0c658fbf49a8a`**. Each domain has 122,880,001 train, 1,024,001 val and 2,097,153 probe tokens. Every domain hit the 158M collection target (StackExchange needed ~32 of 48 SlimPajama shards). Teammates' `prepare` must reproduce this hash.
 - ✅ Phase 1 tuning complete (2026-11-14). Frozen in `configs/frozen.yaml`: AdamW 1.5e-3 (DP / MuLoCo AdamW part), DiLoCo inner 7.5e-4, Muon 1.2e-2, outer 0.8/0.6 Nesterov for DiLoCo and MuLoCo. Details in RESULTS.md §2.
 - ✅ E2 raised to 3 seeds (2026-11-14), so Phase 2 has 40 runs.
+- ✅ Phase 2 runner (2026-11-15): one person runs all 40 runs (costs split at the end) instead of per-teammate manifests; two batches; backups via `scripts/sync_runs.py` to Hugging Face (`paidvenk/muloco-data-heterogeneity`, private until submission). Modal spend limit is capped at $20 for this account until charges build history.
 - ✅ Pilot (2026-11-13): all 4 run types work on H100 with `torch.compile`, and throughput is recorded in §6.2. The pilot is too short to center the LR grids, so Stage A uses the default grids and adds an edge point if needed.
 
 ---

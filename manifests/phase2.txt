@@ -1,0 +1,41 @@
+# Phase 2 production runs (40). Seed 0 first.
+--config configs/frozen.yaml --method diloco --p 0.25 --seed 0
+--config configs/frozen.yaml --method diloco --p 0.5 --seed 0
+--config configs/frozen.yaml --method diloco --p 0.75 --seed 0
+--config configs/frozen.yaml --method diloco --p 1.0 --seed 0
+--config configs/frozen.yaml --method muloco --p 0.25 --seed 0
+--config configs/frozen.yaml --method muloco --p 0.5 --seed 0
+--config configs/frozen.yaml --method muloco --p 0.75 --seed 0
+--config configs/frozen.yaml --method muloco --p 1.0 --seed 0
+--config configs/frozen.yaml --method fedavg_adamw --p 0.25 --seed 0
+--config configs/frozen.yaml --method fedavg_adamw --p 1.0 --seed 0
+--config configs/frozen.yaml --method fedavg_muon --p 0.25 --seed 0
+--config configs/frozen.yaml --method fedavg_muon --p 1.0 --seed 0
+--config configs/frozen.yaml --method diloco --p 0.25 --seed 1
+--config configs/frozen.yaml --method diloco --p 0.5 --seed 1
+--config configs/frozen.yaml --method diloco --p 0.75 --seed 1
+--config configs/frozen.yaml --method diloco --p 1.0 --seed 1
+--config configs/frozen.yaml --method muloco --p 0.25 --seed 1
+--config configs/frozen.yaml --method muloco --p 0.5 --seed 1
+--config configs/frozen.yaml --method muloco --p 0.75 --seed 1
+--config configs/frozen.yaml --method muloco --p 1.0 --seed 1
+--config configs/frozen.yaml --method fedavg_adamw --p 0.25 --seed 1
+--config configs/frozen.yaml --method fedavg_adamw --p 1.0 --seed 1
+--config configs/frozen.yaml --method fedavg_muon --p 0.25 --seed 1
+--config configs/frozen.yaml --method fedavg_muon --p 1.0 --seed 1
+--config configs/frozen.yaml --method dp_adamw --seed 1
+--config configs/frozen.yaml --method dp_muon --seed 1
+--config configs/frozen.yaml --method diloco --p 0.25 --seed 2
+--config configs/frozen.yaml --method diloco --p 0.5 --seed 2
+--config configs/frozen.yaml --method diloco --p 0.75 --seed 2
+--config configs/frozen.yaml --method diloco --p 1.0 --seed 2
+--config configs/frozen.yaml --method muloco --p 0.25 --seed 2
+--config configs/frozen.yaml --method muloco --p 0.5 --seed 2
+--config configs/frozen.yaml --method muloco --p 0.75 --seed 2
+--config configs/frozen.yaml --method muloco --p 1.0 --seed 2
+--config configs/frozen.yaml --method fedavg_adamw --p 0.25 --seed 2
+--config configs/frozen.yaml --method fedavg_adamw --p 1.0 --seed 2
+--config configs/frozen.yaml --method fedavg_muon --p 0.25 --seed 2
+--config configs/frozen.yaml --method fedavg_muon --p 1.0 --seed 2
+--config configs/frozen.yaml --method dp_adamw --seed 2
+--config configs/frozen.yaml --method dp_muon --seed 2

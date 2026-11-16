@@ -5,17 +5,20 @@ different text domain, and does DiLoCo's outer Nesterov momentum protect Muon fr
 
 - **Design:** [`EXPERIMENT_DESIGN.md`](EXPERIMENT_DESIGN.md), covering setup, hypotheses, tuning protocol, budget and the code map (§10).
 - **Results log:** [`RESULTS.md`](RESULTS.md), with every run, table and dated observation.
-- **Run logs:** `runs/<run_id>/` (`config.json`, `metrics.jsonl`, `summary.json`). Model checkpoints (`final.pt`) are not in git.
+- **Run logs:** `runs/<run_id>/` (`config.json`, `metrics.jsonl`, `summary.json`), versioned in git.
+- **Checkpoints:** `final.pt` files (~102 MB each, too large for GitHub) are on Hugging Face at
+  [`paidvenk/muloco-data-heterogeneity`](https://huggingface.co/paidvenk/muloco-data-heterogeneity) (private until the
+  report is submitted), together with a second copy of every run log. `CHECKPOINTS.sha256` lists their SHA-256 hashes.
 
 ---
 
-## Teammate guide: running Phase 2
+## Running the experiments
+All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run takes ~25–35 minutes and costs ~$1.05–1.35;
+`launch` runs up to 10 in parallel and the laptop can sleep once runs are launched with `--detach`.
 
-You'll run a list of training jobs on [Modal](https://modal.com) GPUs from your laptop. Each run takes about 25–35 minutes on an A100. Runs execute in the cloud in parallel (up to 10 at once), and your laptop can sleep once they're launched.
-
-### One-time setup (~15 minutes)
-1. **Modal account:** sign up at modal.com, then go to Settings → Usage & Billing. Add a payment method (required for GPU functions) and **set a spending limit** (e.g. $30). The free $30/month credit is applied first.
-2. **Code and environment** (needs Python ≥ 3.10 and [`uv`](https://docs.astral.sh/uv/), or use `python -m venv`):
+### One-time setup
+1. Modal account with a payment method and a spending limit (Settings → Usage & Billing).
+2. Code and environment (Python ≥ 3.10 and [`uv`](https://docs.astral.sh/uv/)):
    ```bash
    git clone https://github.com/abhay1105/muloco-data-heterogeneity.git
    cd muloco-data-heterogeneity
@@ -23,36 +26,22 @@ You'll run a list of training jobs on [Modal](https://modal.com) GPUs from your 
    .venv/bin/python -m pytest -q          # should print "22 passed"
    .venv/bin/modal setup                  # browser login
    ```
-3. **Build the data** in your Modal workspace (CPU only, ~5–10 min, a few cents):
+3. Build the data (CPU only, ~5–10 min, a few cents). It must print **`data_hash = 33c0c658fbf49a8a`**:
    ```bash
    .venv/bin/modal run modal_prepare.py
    ```
-   It must print **`data_hash = 33c0c658fbf49a8a`**. If it prints anything else, stop and tell the group.
 
-### Run your assigned manifest
-Each line of a manifest is one training run. Use your part, e.g. `manifests/phase2_part2.txt`:
+### Phase 2 (production, 40 runs, frozen hyperparameters in `configs/frozen.yaml`)
 ```bash
-.venv/bin/modal run --detach modal_app.py::launch --manifest manifests/phase2_partN.txt
+.venv/bin/modal run --detach modal_app.py::launch --manifest manifests/phase2_batch1.txt   # seed 0, 12 runs
+.venv/bin/modal run modal_app.py::status --manifest manifests/phase2_batch1.txt            # progress
+.venv/bin/python scripts/sync_runs.py      # download finished runs, verify, checksum, back up to Hugging Face
+git add runs CHECKPOINTS.sha256 && git commit -m "..." && git push
 ```
-- `--detach` keeps the runs going if your laptop disconnects.
-- Re-running the same command is safe: runs that already finished (they have a `summary.json`) are skipped. This is also how you retry failed runs.
-- Check progress at any time:
-  ```bash
-  .venv/bin/modal run modal_app.py::status --manifest manifests/phase2_partN.txt
-  ```
-  You can also watch the app on the Modal dashboard.
-
-### Hand back the results
-When `status` shows every run as `done`:
-```bash
-.venv/bin/modal volume get muloco-runs / runs/
-```
-Then send the new `runs/<run_id>/` folders back to the group. *The exact mechanism (git commit vs. shared drive, and where checkpoints go) is still to be decided.*
-
-### Rules
-- **Don't edit `configs/frozen.yaml` or the manifests.** Every run must use the frozen hyperparameters.
-- Don't change the GPU type unless asked. Results don't depend on it, but timing and cost do.
-- If a run prints `non-finite loss` / `diverged`, that is a valid result, not a bug. Leave it and report it.
+Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifests/phase2.txt` lists all 40.
+- Re-running a launch is safe: finished runs (with a `summary.json`) are skipped. This is also how failed runs are retried.
+- A run that prints `non-finite loss` / `diverged` is a valid result, not a bug.
+- Don't edit `configs/frozen.yaml` or the manifests.
 
 ---
 
