@@ -296,6 +296,7 @@ All 4 finished (20–25 min each), none diverged; backed up (HF hashes verified)
 | **ΔL_het(p=1.0), MuLoCo** | +0.1450 | +0.1313 |
 | **MuLoCo − DiLoCo penalty** | +0.0405 | +0.0367 |
 
+- (2026-11-15) Billing after batch 2a: usage $40.83 ($30 credits + $10.83 charges). Modal processed the $10 payment some time later (not instantly), after which the spend limit could be raised to $80 (usage limit $100). The remaining 24 runs (`phase2_batch2.txt`; finished runs are skipped) were then launched in one batch (≈ $29).
 - (2026-11-15) Seed 1 replicates seed 0: MuLoCo's p=1.0 heterogeneity penalty exceeds DiLoCo's by ≈0.04 on both seeds, while seed-to-seed spread of each final loss is ≈0.002–0.012.
 
 **Seed-0 observations (2026-11-15; one seed, so provisional until batch 2):**
