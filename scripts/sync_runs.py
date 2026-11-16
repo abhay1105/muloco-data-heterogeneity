@@ -149,6 +149,12 @@ def upload(ckpts: list[str]):
           f"{len(logs) - sum(p in logs for p in missing)}/{len(logs)} run logs")
     if missing:
         sys.exit(f"MISSING on Hugging Face: {missing}")
+    info = api.model_info(HF_REPO, files_metadata=True)
+    remote_sha = {s.rfilename: s.lfs.sha256 for s in info.siblings if s.lfs}
+    bad = [path for digest, path, _ in (ln.split() for ln in open(CHECKSUMS)) if remote_sha.get(path) != digest]
+    if bad:
+        sys.exit(f"CHECKSUM MISMATCH on Hugging Face: {bad}")
+    print(f"hugging face: all {len(ckpts)} checkpoint SHA-256 hashes match {CHECKSUMS}")
 
 
 def main():

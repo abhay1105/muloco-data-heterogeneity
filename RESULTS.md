@@ -241,16 +241,52 @@ DiLoCo inner-lr profile: ×0.25 → 2.750, **×0.5 → 2.687**, ×1 → 2.734, �
 
 ---
 
-## 3. Phase 2 (production). *Batch 1 launching 2026-11-15.*
+## 3. Phase 2 (production). *Batch 1 (seed 0) complete 2026-11-15; batch 2 (seeds 1–2) pending.*
 - 40 runs in `manifests/phase2.txt`, run by one person (team decision 2026-11-15) in two batches: `phase2_batch1.txt` (seed 0, 12 runs) then `phase2_batch2.txt` (seeds 1–2, 28 runs).
 - Backups: `scripts/sync_runs.py` after each batch → `runs/` (laptop), git (logs + `CHECKPOINTS.sha256`), Hugging Face `paidvenk/muloco-data-heterogeneity` (logs + checkpoints). The 34 Phase 1 runs and 9 checkpoints were uploaded on 2026-11-15; all 9 SHA-256 hashes match.
 - Billing (2026-11-15): Modal shows $21.40 used this period (all credits, ~$8.60 credit left), usage limit $42, spend limit $20 (the maximum this account allows for now; it auto-raises after the first $10 card payment).
 - Contents: E1 = {DiLoCo, MuLoCo} × p ∈ {0.25, 0.5, 0.75, 1.0} × seeds 0–2 (24 runs); E2 = {FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × seeds 0–2 (12 runs); DP seeds 1–2 (4 runs).
 - Everything uses `--config configs/frozen.yaml`.
 
-### E1: heterogeneity sweep (H1)
+### Batch 1: seed 0, all 12 conditions (2026-11-15, A100-80GB)
+All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/FedAvg-AdamW ~400k tok/s, MuLoCo/FedAvg-Muon ~330–350k tok/s), slightly faster than the estimate. Backed up: laptop, Hugging Face (21/21 checkpoints, SHA-256 verified), git (logs).
 
-### E2: outer-momentum ablation (H2)
+| run_id | balanced | arxiv | github | stackex | wiki | ρ_F | pair_cos | mom_align | interf_gap | ref_cos |
+|---|---|---|---|---|---|---|---|---|---|---|
+| diloco_p0.25_H30_s0 | 2.5172 | 2.150 | 1.526 | 2.332 | 4.060 | 0.531 | 0.043 | 0.049 | 0.461 | 0.309 |
+| diloco_p0.50_H30_s0 | 2.5193 | 2.150 | 1.522 | 2.326 | 4.079 | 0.528 | 0.039 | 0.053 | 0.468 | 0.310 |
+| diloco_p0.75_H30_s0 | 2.5414 | 2.155 | 1.527 | 2.336 | 4.148 | 0.521 | 0.028 | 0.067 | 0.484 | 0.297 |
+| diloco_p1.00_H30_s0 | 2.6217 | 2.188 | 1.560 | 2.381 | 4.358 | 0.502 | 0.003 | 0.087 | 0.522 | 0.271 |
+| muloco_p0.25_H30_s0 | 2.4130 | 2.069 | 1.438 | 2.231 | 3.914 | 0.514 | 0.019 | 0.247 | 0.385 | 0.383 |
+| muloco_p0.50_H30_s0 | 2.4241 | 2.073 | 1.443 | 2.236 | 3.944 | 0.513 | 0.017 | 0.249 | 0.389 | 0.383 |
+| muloco_p0.75_H30_s0 | 2.4537 | 2.084 | 1.452 | 2.249 | 4.030 | 0.509 | 0.012 | 0.253 | 0.394 | 0.375 |
+| muloco_p1.00_H30_s0 | 2.5580 | 2.137 | 1.496 | 2.311 | 4.289 | 0.499 | −0.001 | 0.266 | 0.412 | 0.357 |
+| fedavg_adamw_p0.25_H30_s0 | 2.5757 | 2.194 | 1.572 | 2.388 | 4.149 | 0.520 | 0.027 | — | 0.477 | 0.265 |
+| fedavg_adamw_p1.00_H30_s0 | 2.6920 | 2.248 | 1.621 | 2.448 | 4.451 | 0.495 | −0.008 | — | 0.531 | 0.235 |
+| fedavg_muon_p0.25_H30_s0 | 2.4206 | | | | | | | | | |
+| fedavg_muon_p1.00_H30_s0 | 2.5506 | | | | | | | | | |
+
+(Diagnostics: mean over the last 25% of rounds; ref_cos over the 3 probe rounds. DP seed-0 baselines: DP-AdamW 2.3079, DP-Muon 2.2490.)
+
+### E1: heterogeneity sweep (H1), seed 0 only
+| | ΔL_het p=0.5 | p=0.75 | p=1.0 | slope vs h | G_DP at IID | G_DP at p=1.0 |
+|---|---|---|---|---|---|---|
+| DiLoCo | +0.0021 | +0.0243 | +0.1045 | 0.134 | 9.1% | 13.6% |
+| MuLoCo | +0.0112 | +0.0407 | +0.1450 | 0.186 | 7.3% | 13.7% |
+| MuLoCo − DiLoCo | +0.0091 | +0.0165 | +0.0405 | | | |
+
+### E2: outer-momentum ablation (H2), seed 0 only
+| inner | penalty FedAvg (p=1 − p=0.25) | penalty Nesterov | rescue R = FedAvg − Nesterov |
+|---|---|---|---|
+| AdamW | +0.1163 | +0.1045 | +0.0118 |
+| Muon | +0.1300 | +0.1450 | −0.0151 |
+
+**Seed-0 observations (2026-11-15; one seed, so provisional until batch 2):**
+- MuLoCo beats DiLoCo at every p (by 0.104 at IID, 0.064 at p=1.0), but its heterogeneity penalty is larger at every p (+0.145 vs +0.105 at p=1.0). This leans toward the FL (client-drift) prediction of H1. By p=1.0 both sit ~13.7% above their own DP baseline, so MuLoCo's relative advantage over DP vanishes at full skew.
+- The penalty is convex in h for both methods: nearly zero at p=0.5, small at 0.75, large at 1.0.
+- The penalty is concentrated in Wikipedia (the domain most unlike the others): IID → p=1.0 raises Wikipedia loss by +0.30 (DiLoCo) / +0.375 (MuLoCo) vs +0.03–0.07 on the other domains.
+- H2 is not supported on seed 0. Outer Nesterov momentum barely helps either optimizer under skew (R_AdamW = +0.012) and slightly hurts Muon (R_Muon = −0.015). FedAvg-Muon at p=1.0 (2.5506) is even slightly better than MuLoCo (2.5580). At IID, momentum helps AdamW (2.5757 → 2.5172) but barely helps Muon (2.4206 → 2.4130).
+- Diagnostics move with h as expected: pairwise cosine → 0, ρ_F → 0.50 (orthogonal workers), interference gap and DiLoCo's momentum alignment rise, ref_cos falls. MuLoCo's pseudo-gradients agree far more with the outer momentum (≈0.25 vs ≈0.05–0.09) and with the DP reference direction (0.36–0.38 vs 0.27–0.31) and have a lower interference gap, yet its loss penalty is larger. So better-aligned updates did not translate into robustness here.
 
 ---
 
