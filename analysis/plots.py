@@ -410,6 +410,43 @@ def fig_specialization(runs, out, p=1.0, seed=0):
     save(fig, out, "fig8_specialization")
 
 
+def home_advantage(run, last_only=True):
+    """Worker specialization (post-hoc): for each domain d = home of worker k, mean loss of the other workers' local
+    models on d minus worker k's loss on d, averaged over the 4 domains. Measured before averaging at the probe
+    rounds (25/50/75% of training). Returns (mean over domains, per-domain array) for the last (or every) probe round."""
+    out = []
+    for x in run.rows:
+        if x["kind"] == "diag" and "specialization" in x:
+            S = np.array([[x["specialization"][f"worker{k}"][d] for d in DOMAINS] for k in range(4)])
+            a = np.array([np.mean([S[j, k] for j in range(4) if j != k]) - S[k, k] for k in range(4)])
+            out.append(a)
+    if not out:
+        return np.nan, None
+    a = out[-1] if last_only else np.mean(out, axis=0)
+    return float(a.mean()), a
+
+
+def fig_home_advantage(runs, out):
+    fig, ax = plt.subplots(figsize=(5.2, 3.6))
+    hs = np.array([h_of(p) for p in PS])
+    for j, method in enumerate(("diloco", "muloco", "fedavg_adamw", "fedavg_muon")):
+        inner, outer, label = METHOD[method]
+        st = [ms([home_advantage(r)[0] for (m, pp, _), r in runs.items() if m == method and pp == p]) for p in PS]
+        m, s = np.array([x[0] for x in st]), np.array([x[1] for x in st])
+        ok = np.isfinite(m)
+        ax.errorbar(hs[ok] + (j - 1.5) * 0.008, m[ok], yerr=s[ok], color=HUE[inner],
+                    ls="none" if outer == "fedavg" else STYLE[outer],  # FedAvg ran at p=0.25 and 1.0 only
+                    marker="o" if outer == "nesterov" else "s", mfc="white" if outer == "fedavg" else HUE[inner],
+                    ms=5, capsize=3, lw=1.6, label=label)
+    ax.axhline(0, color=AXIS, lw=1)
+    ax.set_xticks(hs, [f"{h:.2f}\n(p={p:g})" for h, p in zip(hs, PS)])
+    ax.set_xlabel("heterogeneity h")
+    ax.set_ylabel("home-domain advantage (nats)")
+    ax.set_title("Worker specialization within a round (75% of training)", loc="left")
+    ax.legend()
+    save(fig, out, "fig9_home_advantage")
+
+
 # ---------------------------------------------------------------------------- tables
 def f(m, s, n, nd=4):
     return "—" if not n else f"{m:.{nd}f} ± {s:.{nd}f} (n={n})"
@@ -454,6 +491,12 @@ def tables(runs, out):
                 cells = [f(*ms([r.late_mean(k) for r in rs]), nd=3) for k in
                          ("rho_F/all", "pair_cos/all", "mom_align/all", "rho_nuc/all", "interference_gap/all")]
                 L.append(f"| {METHOD[m][2]} | {p:g} | " + " | ".join(cells) + " |")
+    L += ["", "## Worker specialization (post-hoc): home-domain advantage of local models before averaging", "",
+          "Mean over domains of [other workers' loss on d − home worker's loss on d], last probe round (75% of training).", "",
+          "| method | " + " | ".join(f"p={p:g}" for p in PS) + " |", "|---|" + "---|" * 4]
+    for m in ("diloco", "muloco", "fedavg_adamw", "fedavg_muon"):
+        L.append(f"| {METHOD[m][2]} | " + " | ".join(
+            f(*ms([home_advantage(r)[0] for (mm, pp, _), r in runs.items() if mm == m and pp == p])) for p in PS) + " |")
     diverged = [f"{k}" for k, r in runs.items() if r.summary.get("diverged")]
     L += ["", f"Runs loaded: {len(runs)}. Diverged: {diverged or 'none'}."]
     with open(os.path.join(out, "summary.md"), "w") as fh:
@@ -471,7 +514,7 @@ def main():
     runs = load(a.runs)
     print(f"{len(runs)} production runs:", ", ".join(f"{m}/{p}/{s}" for m, p, s in sorted(runs, key=str)))
     for fig in (fig_loss_curves, fig_loss_curves_e2, fig_final_vs_h, fig_delta_het, fig_domain_heatmap,
-                fig_e2_bars, fig_diag_over_training, fig_spectral_vs_h, fig_specialization):
+                fig_e2_bars, fig_diag_over_training, fig_spectral_vs_h, fig_specialization, fig_home_advantage):
         fig(runs, a.out)
     tables(runs, a.out)
 

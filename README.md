@@ -7,6 +7,7 @@ different text domain, and does DiLoCo's outer Nesterov momentum protect Muon fr
 - **H1 (does MuLoCo's advantage survive non-IID data?):** MuLoCo keeps the lower loss at every skew level, but loses more to skew than DiLoCo does. At full skew its penalty is +0.135 vs DiLoCo's +0.101 (difference +0.034, same sign on all seeds), which supports the federated-learning (client-drift) prediction.
 - **H2 (does outer momentum protect Muon?):** no. Outer Nesterov momentum slightly reduces AdamW's skew penalty (+0.010) and does nothing for Muon (−0.009); FedAvg-Muon and MuLoCo tie at full skew.
 - Full numbers, verdicts and caveats: [`RESULTS.md`](RESULTS.md) §3. Figures and tables: [`figures/`](figures/) (`summary.md` has the tables).
+- Paper draft (LaTeX): [`report/main.tex`](report/main.tex) with [`report/refs.bib`](report/refs.bib); it reads figures from `figures/`.
 
 - **Design:** [`EXPERIMENT_DESIGN.md`](EXPERIMENT_DESIGN.md), covering setup, hypotheses, tuning protocol, budget and the code map (§10).
 - **Results log:** [`RESULTS.md`](RESULTS.md), with every run, table and dated observation.

@@ -6,3 +6,9 @@ data_bin/
 data_tiny/
 # model checkpoints live in the Modal volume `muloco-runs`; only small run logs are versioned
 *.pt
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.out
+report/*.synctex.gz

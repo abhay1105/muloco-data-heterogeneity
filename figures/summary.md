@@ -54,4 +54,15 @@ Penalty = L(p=1.0) − L(p=0.25) per seed; R_i = penalty(FedAvg_i) − penalty(N
 | FedAvg-Muon | 0.25 | 0.508 ± 0.000 (n=3) | 0.011 ± 0.000 (n=3) | — | 0.484 ± 0.000 (n=3) | 0.395 ± 0.000 (n=3) |
 | FedAvg-Muon | 1 | 0.496 ± 0.000 (n=3) | -0.005 ± 0.000 (n=3) | — | 0.474 ± 0.000 (n=3) | 0.416 ± 0.000 (n=3) |
 
+## Worker specialization (post-hoc): home-domain advantage of local models before averaging
+
+Mean over domains of [other workers' loss on d − home worker's loss on d], last probe round (75% of training).
+
+| method | p=0.25 | p=0.5 | p=0.75 | p=1 |
+|---|---|---|---|---|
+| DiLoCo | 0.0000 ± 0.0014 (n=3) | 0.0086 ± 0.0000 (n=3) | 0.0205 ± 0.0018 (n=3) | 0.0708 ± 0.0007 (n=3) |
+| MuLoCo | 0.0005 ± 0.0010 (n=3) | 0.0144 ± 0.0004 (n=3) | 0.0347 ± 0.0008 (n=3) | 0.1183 ± 0.0005 (n=3) |
+| FedAvg-AdamW | 0.0001 ± 0.0012 (n=3) | — | — | 0.0700 ± 0.0016 (n=3) |
+| FedAvg-Muon | 0.0007 ± 0.0011 (n=3) | — | — | 0.1248 ± 0.0042 (n=3) |
+
 Runs loaded: 42. Diverged: none.
