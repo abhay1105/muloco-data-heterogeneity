@@ -54,4 +54,5 @@ Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifes
     --spectral_every 30 --warmup_steps 10 --compile 0             # local smoke run
 python scripts/make_manifest.py {pilot,stageA,stageB,stageC,phase2} ...   # run lists
 python analysis/summarize.py "<run-id glob>" --diag              # markdown results table
+.venv/bin/python analysis/plots.py                               # report figures + H1/H2 tables -> figures/
 ```

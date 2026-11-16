@@ -6,3 +6,4 @@ huggingface_hub
 pyyaml
 modal
 pytest
+matplotlib

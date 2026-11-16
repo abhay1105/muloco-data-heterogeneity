@@ -255,6 +255,7 @@ DiLoCo inner-lr profile: ×0.25 → 2.750, **×0.5 → 2.687**, ×1 → 2.734, �
 ---
 
 ## 4. Running observations and notes for the write-up
+- (2026-11-15) Eval-set note: the periodic evals (every 300 steps) use fixed 250-seq/domain subsets, while the final eval uses 1000 seqs/domain. On the same final model the full eval reads about 0.023 higher (DP-AdamW: 2.2846 at step 7200 on subsets vs 2.3079 final; DP-Muon: 2.2251 vs 2.2490). Loss curves therefore use the subset evals only, and every final-loss number uses the full eval. Never mix the two in one comparison.
 - (2026-11-13) Design decisions to describe in the report:
   - Deterministic skew p replaces Dirichlet, so the global mixture is identical across conditions and every arm trains on the same token multiset.
   - Each worker keeps its inner optimizer state across rounds.
