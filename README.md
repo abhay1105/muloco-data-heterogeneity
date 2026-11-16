@@ -18,11 +18,11 @@ different text domain, and does DiLoCo's outer Nesterov momentum protect Muon fr
 ---
 
 ## Running the experiments
-All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run takes ~25–35 minutes and costs ~$1.05–1.35;
+All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run takes ~20–30 minutes;
 `launch` runs up to 10 in parallel and the laptop can sleep once runs are launched with `--detach`.
 
 ### One-time setup
-1. Modal account with a payment method and a spending limit (Settings → Usage & Billing). New accounts start with the spend limit capped at $20; it rises automatically once Modal processes the first $10 card payment, so size launches to the remaining usage-limit room (a run stopped at the limit is lost).
+1. Modal account with a payment method and a spending limit (Settings → Usage & Billing). New accounts start with a low spend cap that rises automatically after the first payment is processed, so size each launch to the remaining room: a run stopped at the limit has no mid-run checkpoint and is lost.
 2. Code and environment (Python ≥ 3.10 and [`uv`](https://docs.astral.sh/uv/)):
    ```bash
    git clone https://github.com/abhay1105/muloco-data-heterogeneity.git
@@ -43,7 +43,7 @@ All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run t
 .venv/bin/python scripts/sync_runs.py      # download finished runs, verify, checksum, back up to Hugging Face
 git add runs CHECKPOINTS.sha256 && git commit -m "..." && git push
 ```
-Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifests/phase2.txt` lists all 40. (We ran 4 of batch 2 first as `manifests/phase2_batch2a.txt` to fit the new-account spend limit, then the rest; finished runs are skipped automatically.)
+Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifests/phase2.txt` lists all 40. (We ran 4 of batch 2 first as `manifests/phase2_batch2a.txt` to fit the account's limit, then the rest; finished runs are skipped automatically.)
 - Re-running a launch is safe: finished runs (with a `summary.json`) are skipped. This is also how failed runs are retried.
 - A run that prints `non-finite loss` / `diverged` is a valid result, not a bug.
 - Don't edit `configs/frozen.yaml` or the manifests.

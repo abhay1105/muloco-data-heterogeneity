@@ -18,7 +18,7 @@
   3. Heterogeneity skew **p ∈ {0.25 (IID), 0.5, 0.75, 1.0 (one domain per worker)}**.
   - The sync interval is fixed at **H = 30**.
 - **Heterogeneity is controlled by a deterministic skew `p`, not by random Dirichlet draws.** The global data mixture, and therefore the training objective and the DP baselines, stays identical across all heterogeneity levels (see §3.3).
-- **Budget:** planned **58 R** (18 for setup and tuning, 40 production). Actual: 34 Phase 1 run folders (pilot, Stage A–C plus edge points) and all 40 Phase 2 runs, nothing cut. Actual spend ≈ **$69** on one Modal workspace (§6.2), split across the team.
+- **Budget:** planned **58 R** (18 for setup and tuning, 40 production). Actual: 34 Phase 1 run folders (pilot, Stage A–C plus edge points) and all 40 Phase 2 runs, nothing cut. Actual compute ≈ **24 GPU-hours** on one Modal workspace (§6.2).
 - **Workflow:**
   - Phase 1 (us): build the codebase, run smoke tests, pilot, and tune LRs.
   - Phase 2: run the 40 frozen commands on hosted GPUs. Planned for teammates' workspaces; in the end one person ran everything (§6.3).
@@ -256,41 +256,50 @@ A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 
 **If money or time gets tight, cut in this order:** E1 seed 2 at p ∈ {0.5, 0.75} → E2 seed 2. **Never cut** the IID and p = 1.0 points of E1.
 
-### 6.2 Platform, GPU and cost
+### 6.2 Platform, GPU and compute
 **Platform: [Modal](https://modal.com). GPU: H100 for the pilot and Stage A, A100-80GB from Stage B on (see update below).**
 - Modal runs our training function in a cloud GPU container launched from a laptop command, and bills per second only while code runs. Nothing idles, so a forgotten pod can't run up a bill.
-- The Starter plan includes **$30/month of free credit per workspace**. In the end the whole project ran on one workspace and costs were split across the team.
-- New workspaces start with a **$20 cap on the spend limit** (out-of-pocket charges). The cap rises automatically once Modal has processed a $10 card payment, which happened some time after the threshold was crossed, not instantly. Size each launch to the remaining usage-limit headroom: a run stopped at the limit has no mid-run checkpoint and is wasted.
+- The Starter plan includes monthly free credit per workspace. In the end the whole project ran on one workspace.
+- New workspaces start with a low spend cap that rises automatically once Modal has processed the first card payment (which happened some time after the threshold was crossed, not instantly). Size each launch to the remaining headroom: a run stopped at the limit has no mid-run checkpoint and is wasted.
 - Up to 10 GPUs can run at once, so each tuning stage finishes in roughly one run's wall-clock time.
-- Modal has no 4090s. On Modal, the H100 gives the best cost per run.
+- Modal has no 4090s. On Modal, the H100 is the fastest option per run.
 
 **Measured in the pilot (2026-11-13, H100 80GB HBM3, `torch.compile` on, 300-step runs):**
 
-| Run type | Training throughput | Overheads (per full run) | Est. wall time per full run | ~$ per run at ~$3.95/hr |
-|---|---|---|---|---|
-| DP (AdamW or Muon) | ~900–960k tok/s (3.4 s per 50 steps) | ~1 min (compile, evals) | **~9–10 min** | ~$0.65 |
-| DiLoCo (local, K=4) | ~940k tok/s (2.1 s per round) | spectral diagnostics ~5 s × 25, probes ~3.5 s × 3, evals | **~11–12 min** | ~$0.75 |
-| MuLoCo (local, K=4) | ~740k tok/s (2.7 s per round) | same | **~13–14 min** | ~$0.90 |
-
-| Phase | Runs | Est. GPU-hours | Est. cost |
+| Run type | Training throughput | Overheads (per full run) | Est. wall time per full run |
 |---|---|---|---|
-| Phase 1 (pilot done; Stage A: 8 full DP; Stages B+C: 16 half-length local) | 24 | ~3.3 h | ~$13 |
-| Phase 2 (40 full runs) | 40 | ~8.3 h | ~$33 |
-| **Total incl. ~20% slack** | | **~14 h** | **~$55** |
+| DP (AdamW or Muon) | ~900–960k tok/s (3.4 s per 50 steps) | ~1 min (compile, evals) | **~9–10 min** |
+| DiLoCo (local, K=4) | ~940k tok/s (2.1 s per round) | spectral diagnostics ~5 s × 25, probes ~3.5 s × 3, evals | **~11–12 min** |
+| MuLoCo (local, K=4) | ~740k tok/s (2.7 s per round) | same | **~13–14 min** |
+
+| Phase | Runs | Est. GPU-hours (H100) |
+|---|---|---|
+| Phase 1 (pilot done; Stage A: 8 full DP; Stages B+C: 16 half-length local) | 24 | ~3.3 h |
+| Phase 2 (40 full runs) | 40 | ~8.3 h |
+| **Total incl. ~20% slack** | | **~14 h** |
 
 Runs are about 2× faster than the original estimate. Every run is well under 30 minutes, so the run budget (§6.1) is unchanged.
 
-**Update 2026-11-14: H100 is no longer available on the Modal Starter plan** (launches queue indefinitely with "H100 unavailable on starter plan"). From Stage B on, runs use **A100-80GB** (~$2.50/hr), now the default in `modal_app.py`.
+**Update 2026-11-14: H100 is no longer available on the Modal Starter plan** (launches queue indefinitely with "H100 unavailable on starter plan"). From Stage B on, runs use **A100-80GB**, now the default in `modal_app.py`.
 
-| A100-80GB (measured in Stage B) | Training speed | Est. full run | ~$ per full run |
+| A100-80GB (measured in Stage B) | Training speed | Est. full run |
 |---|---|---|---|
-| DP | ~350k tok/s (est.) | ~25 min | ~$1.05 |
-| DiLoCo | ~340–390k tok/s | ~28 min | ~$1.15 |
-| MuLoCo | ~290–340k tok/s | ~32 min | ~$1.35 |
+| DP | ~350k tok/s (est.) | ~25 min |
+| DiLoCo | ~340–390k tok/s | ~28 min |
+| MuLoCo | ~290–340k tok/s | ~32 min |
 
-Phase 2 (40 runs) was estimated at **~$45–50**. **Measured:** ≈ $1.21 per run on average (19–29 min of training per run; DiLoCo/FedAvg-AdamW/DP ≈ 400k tok/s, MuLoCo/FedAvg-Muon ≈ 330–350k tok/s), ≈ $49 for all of Phase 2, ≈ $69 for the whole project. Results don't depend on GPU type; only speed and cost do.
+**Measured compute** (container wall time from `summary.json`, including compile, evals and diagnostics):
 
-- **Develop for free:** write code and run tiny-config smoke tests and correctness tests on a laptop (CPU or MPS, `--compile 0`). Only spend credits once they pass.
+| Phase | GPU | Runs | GPU-hours | Avg per run |
+|---|---|---|---|---|
+| Phase 1: pilot + Stage A | H100 80GB | 12 | 1.4 | 7 min |
+| Phase 1: Stages B + C (half length) | A100-80GB | 22 | 5.3 | 15 min |
+| Phase 2 (full length) | A100-80GB | 40 | 17.6 | 26 min |
+| **Total** | | **74** | **≈ 24.3** | |
+
+In Phase 2, training throughput was ≈ 400k tok/s for DiLoCo / FedAvg-AdamW / DP and ≈ 330–350k tok/s for MuLoCo / FedAvg-Muon. Results don't depend on GPU type; only speed does.
+
+- **Develop locally:** write code and run tiny-config smoke tests and correctness tests on a laptop (CPU or MPS, `--compile 0`). Only use GPUs once they pass.
 - **Platform independence:**
   - The core is a plain CLI, `python -m src.train ...`, that runs anywhere.
   - `modal_app.py` is a thin wrapper.
@@ -300,7 +309,7 @@ Phase 2 (40 runs) was estimated at **~$45–50**. **Measured:** ≈ $1.21 per ru
 
 | Resource | What it is |
 |---|---|
-| Volume `muloco-data` | Tokenized `.bin` files and `meta.json`, about 1.1 GB, written by `modal_prepare.py` (a separate CPU-only app, costing a few cents) |
+| Volume `muloco-data` | Tokenized `.bin` files and `meta.json`, about 1.1 GB, written by `modal_prepare.py` (a separate CPU-only app) |
 | Volume `muloco-runs` | One directory per run |
 | Function `train` | GPU, one run per call |
 | Entrypoint `launch` | Runs a manifest file of runs in parallel and skips runs that already have a `summary.json` |
@@ -318,7 +327,7 @@ Phase 2 (40 runs) was estimated at **~$45–50**. **Measured:** ≈ $1.21 per ru
   4. Stages A–C.
   5. Write `configs/frozen.yaml`.
   6. Produce a **run manifest**: one exact command per Phase 2 run.
-- **Phase 2 (one runner, decided 2026-11-15):** the team agreed one person runs all 40 runs on the workspace used for Phase 1, with costs split at the end. Runs go in two batches: `manifests/phase2_batch1.txt` (seed 0, 12 runs, a sanity check against Phase 1) and `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs; can be split with `make_manifest.py phase2 --batch2_parts N` to fit the Modal spend limit).
+- **Phase 2 (one runner, decided 2026-11-15):** the team agreed one person runs all 40 runs on the workspace used for Phase 1. Runs go in two batches: `manifests/phase2_batch1.txt` (seed 0, 12 runs, a sanity check against Phase 1) and `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs; can be split with `make_manifest.py phase2 --batch2_parts N` to fit the account's limit).
 - **Collection and backup:** after each batch, `scripts/sync_runs.py` downloads finished runs from the `muloco-runs` volume to `runs/`, verifies them, writes `CHECKPOINTS.sha256`, and uploads everything (logs + checkpoints) to the Hugging Face model repo `paidvenk/muloco-data-heterogeneity`. Logs and checksums are then committed to git. Copies: logs on GitHub, Hugging Face, laptop and Modal; checkpoints on Hugging Face, laptop and Modal. The tokenized data is not archived; it is rebuilt deterministically (pinned revisions, `data_hash`).
 - **Parallelism:** `launch` fans out up to 10 runs at once per workspace.
 
@@ -440,7 +449,7 @@ muloco-data-heterogeneity/
 ```bash
 # local dev (once)
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
-.venv/bin/python -m pytest -q                       # correctness tests (must pass before spending credits)
+.venv/bin/python -m pytest -q                       # correctness tests (must pass before using GPUs)
 .venv/bin/python -m src.prepare_data --out data_tiny --synthetic   # tiny data for manual smoke runs
 
 # Modal (once per workspace)
@@ -501,13 +510,13 @@ for round r = 0 .. 7500/H − 1:
 
 ## 12. Decisions log
 - ✅ Dirichlet is replaced by the deterministic skew p. The proposal was a draft.
-- ✅ Platform: Modal (originally planned as each teammate on their own free-credit workspace; superseded 2026-11-15, see below). GPU: H100 for the pilot and Stage A; **A100-80GB from 2026-11-14** (H100 blocked on the Starter plan). Development and correctness tests happen locally.
+- ✅ Platform: Modal (originally planned as each teammate on their own workspace; superseded 2026-11-15, see below). GPU: H100 for the pilot and Stage A; **A100-80GB from 2026-11-14** (H100 blocked on the Starter plan). Development and correctness tests happen locally.
 - ✅ Scope: minimal experiment only (E1 + E2 + DP baselines). Everything in "Deferred" waits until that data is collected.
 - ✅ Workflow: we build, test and tune; Phase 2 runs frozen commands (§6.3). Collection: `scripts/sync_runs.py` → git (logs) + Hugging Face (checkpoints).
 - ✅ Data built on Modal (2026-11-13): **data_hash = `33c0c658fbf49a8a`**. Each domain has 122,880,001 train, 1,024,001 val and 2,097,153 probe tokens. Every domain hit the 158M collection target (StackExchange needed ~32 of 48 SlimPajama shards). Any rebuild of the data must reproduce this hash.
 - ✅ Phase 1 tuning complete (2026-11-14). Frozen in `configs/frozen.yaml`: AdamW 1.5e-3 (DP / MuLoCo AdamW part), DiLoCo inner 7.5e-4, Muon 1.2e-2, outer 0.8/0.6 Nesterov for DiLoCo and MuLoCo. Details in RESULTS.md §2.
 - ✅ E2 raised to 3 seeds (2026-11-14), so Phase 2 has 40 runs.
-- ✅ Phase 2 runner (2026-11-15): one person runs all 40 runs (costs split at the end) instead of per-teammate manifests; two batches; backups via `scripts/sync_runs.py` to Hugging Face (`paidvenk/muloco-data-heterogeneity`, private until submission). Modal spend limit is capped at $20 for this account until charges build history.
+- ✅ Phase 2 runner (2026-11-15): one person runs all 40 runs instead of per-teammate manifests; two batches (plus a small 4-run batch to fit the account's limit); backups via `scripts/sync_runs.py` to Hugging Face (`paidvenk/muloco-data-heterogeneity`, private until submission).
 - ✅ Phase 2 complete (2026-11-15): 40/40 runs, none diverged, all backed up. H1-FL supported by the pre-registered rule (MuLoCo penalty larger, +0.034 at h=0.75); H2 not supported (R_AdamW +0.010 > 0 > R_Muon −0.009). Details in RESULTS.md §3; figures in `figures/`.
 - ✅ Pilot (2026-11-13): all 4 run types work on H100 with `torch.compile`, and throughput is recorded in §6.2. The pilot is too short to center the LR grids, so Stage A uses the default grids and adds an edge point if needed.
 

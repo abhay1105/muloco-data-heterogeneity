@@ -50,8 +50,7 @@ A running record of every run, result and observation, kept for the written repo
 | DiLoCo | ~2.1 s per round | ~940k tok/s | ~11–12 min |
 | MuLoCo | ~2.7 s per round | ~740k tok/s | ~13–14 min |
 
-- Spectral diagnostics (every 300 steps) cost ~5 s each, and a probe round costs ~3.5 s.
-- Estimated total budget is about $50.
+- Spectral diagnostics (every 300 steps) take ~5 s each, and a probe round takes ~3.5 s.
 
 **Observations:**
 - (2026-11-13) Pipeline works end to end on GPU for all 4 run types: compile, worker simulation, diagnostics, probe rounds and checkpoint saving. No divergence.
@@ -237,14 +236,13 @@ DiLoCo inner-lr profile: ×0.25 → 2.750, **×0.5 → 2.687**, ×1 → 2.734, �
 
 **DP seed-0 baselines come from Stage A** (same hyperparameters as frozen): `dp_adamw_s0_lr0.0015` (2.3079) and `dp_muon_s0_lrm0.012` (2.2490). Phase 2 adds DP seeds 1–2 as `dp_adamw_s1/s2` and `dp_muon_s1/s2`. The analysis must map the seed-0 baselines to these Stage A run ids. (Stage A seed 0 ran on H100 and Phase 2 runs on A100; hardware affects speed only.)
 
-**Phase 1 complete (2026-11-14).** Spend: about $9 on day 1 (pilot + Stage A, H100) and about $11 on day 2 (Stages B and C plus edge points, A100), about $20 in total.
+**Phase 1 complete (2026-11-14).** Compute: ≈ 1.4 H100-hours (pilot + Stage A) and ≈ 5.3 A100-hours (Stages B and C plus edge points).
 
 ---
 
 ## 3. Phase 2 (production). *COMPLETE 2026-11-15: 40/40 runs, none diverged.*
 - 40 runs in `manifests/phase2.txt`, run by one person (team decision 2026-11-15) in two batches: `phase2_batch1.txt` (seed 0, 12 runs) then `phase2_batch2.txt` (seeds 1–2, 28 runs).
 - Backups: `scripts/sync_runs.py` after each batch → `runs/` (laptop), git (logs + `CHECKPOINTS.sha256`), Hugging Face `paidvenk/muloco-data-heterogeneity` (logs + checkpoints). The 34 Phase 1 runs and 9 checkpoints were uploaded on 2026-11-15; all 9 SHA-256 hashes match.
-- Billing (2026-11-15): Modal shows $21.40 used this period (all credits, ~$8.60 credit left), usage limit $42, spend limit $20 (the maximum this account allows for now; it auto-raises after the first $10 card payment).
 - Contents: E1 = {DiLoCo, MuLoCo} × p ∈ {0.25, 0.5, 0.75, 1.0} × seeds 0–2 (24 runs); E2 = {FedAvg-AdamW, FedAvg-Muon} × p ∈ {0.25, 1.0} × seeds 0–2 (12 runs); DP seeds 1–2 (4 runs).
 - Everything uses `--config configs/frozen.yaml`.
 
@@ -288,7 +286,7 @@ All 40 Phase 2 runs finished; none diverged. With the two Stage A DP seed-0 base
 - The third H2 prediction holds: Nesterov does not remove the penalty for either optimizer.
 - Caveat for the write-up: the outer config (0.8 / 0.6) was tuned on IID data at half length, and Stage B showed MuLoCo's outer-momentum curve to be flat (2.516–2.564 for μ ∈ {0, 0.3, 0.6, 0.9}). So "momentum does not rescue Muon" is a statement about this tuned-on-IID config; a skew-tuned momentum was not tested (deferred).
 
-**Spend:** Phase 1 ≈ $20; Phase 2 ≈ $14.50 (batch 1) + ≈ $5 (batch 2a) + ≈ $29 (batch 2), ≈ $49. Project total ≈ $69 (confirm on the Modal billing page).
+**Compute:** Phase 2 ≈ 17.6 A100-hours (26 min per run on average); whole project ≈ 24.3 GPU-hours (see EXPERIMENT_DESIGN.md §6.2).
 
 ### Batch 1: seed 0, all 12 conditions (2026-11-15, A100-80GB)
 All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/FedAvg-AdamW ~400k tok/s, MuLoCo/FedAvg-Muon ~330–350k tok/s), slightly faster than the estimate. Backed up: laptop, Hugging Face (21/21 checkpoints, SHA-256 verified), git (logs).
@@ -324,7 +322,7 @@ All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/
 | Muon | +0.1300 | +0.1450 | −0.0151 |
 
 ### Batch 2a: 4 seed-1 runs (launched 2026-11-15)
-Billing before launch: usage $35.92 ($30 credits + $5.92 charges) of a $42.50 usage limit; spend limit capped at $20. Batch 1 cost ≈ $14.50 (≈ $1.21/run). Batch 2a (`manifests/phase2_batch2a.txt`: DiLoCo/MuLoCo × p ∈ {0.25, 1.0}, seed 1, ≈ $5) fits the remaining room and pushes charges past $10, which triggers Modal's payment and the automatic limit raise. The remaining 24 runs follow once the new limit is known.
+A small batch (`manifests/phase2_batch2a.txt`: DiLoCo/MuLoCo × p ∈ {0.25, 1.0}, seed 1) was run first to fit the Modal account's limit at the time; the remaining 24 runs followed once the limit was raised.
 
 All 4 finished (20–25 min each), none diverged; backed up (HF hashes verified).
 
@@ -338,7 +336,7 @@ All 4 finished (20–25 min each), none diverged; backed up (HF hashes verified)
 | **ΔL_het(p=1.0), MuLoCo** | +0.1450 | +0.1313 |
 | **MuLoCo − DiLoCo penalty** | +0.0405 | +0.0367 |
 
-- (2026-11-15) Billing after batch 2a: usage $40.83 ($30 credits + $10.83 charges). Modal processed the $10 payment some time later (not instantly), after which the spend limit could be raised to $80 (usage limit $100). The remaining 24 runs (`phase2_batch2.txt`; finished runs are skipped) were then launched in one batch (≈ $29).
+- (2026-11-15) The remaining 24 runs (`phase2_batch2.txt`; finished runs are skipped) were launched in one batch once the account limit was raised.
 - (2026-11-15) Seed 1 replicates seed 0: MuLoCo's p=1.0 heterogeneity penalty exceeds DiLoCo's by ≈0.04 on both seeds, while seed-to-seed spread of each final loss is ≈0.002–0.012.
 
 **Seed-0 observations (2026-11-15; one seed, so provisional until batch 2):**
