@@ -3,6 +3,11 @@
 Does MuLoCo (Muon as DiLoCo's inner optimizer) keep its advantage over DiLoCo when each worker trains on a
 different text domain, and does DiLoCo's outer Nesterov momentum protect Muon from the client drift that federated-learning theory predicts?
 
+**Status (2026-11-15): all experiments complete.** 74 runs in total: 34 for tuning (Phase 1) and 40 production runs (Phase 2: 3 seeds per condition, none diverged).
+- **H1 (does MuLoCo's advantage survive non-IID data?):** MuLoCo keeps the lower loss at every skew level, but loses more to skew than DiLoCo does. At full skew its penalty is +0.135 vs DiLoCo's +0.101 (difference +0.034, same sign on all seeds), which supports the federated-learning (client-drift) prediction.
+- **H2 (does outer momentum protect Muon?):** no. Outer Nesterov momentum slightly reduces AdamW's skew penalty (+0.010) and does nothing for Muon (−0.009); FedAvg-Muon and MuLoCo tie at full skew.
+- Full numbers, verdicts and caveats: [`RESULTS.md`](RESULTS.md) §3. Figures and tables: [`figures/`](figures/) (`summary.md` has the tables).
+
 - **Design:** [`EXPERIMENT_DESIGN.md`](EXPERIMENT_DESIGN.md), covering setup, hypotheses, tuning protocol, budget and the code map (§10).
 - **Results log:** [`RESULTS.md`](RESULTS.md), with every run, table and dated observation.
 - **Run logs:** `runs/<run_id>/` (`config.json`, `metrics.jsonl`, `summary.json`), versioned in git.
@@ -17,7 +22,7 @@ All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run t
 `launch` runs up to 10 in parallel and the laptop can sleep once runs are launched with `--detach`.
 
 ### One-time setup
-1. Modal account with a payment method and a spending limit (Settings → Usage & Billing).
+1. Modal account with a payment method and a spending limit (Settings → Usage & Billing). New accounts start with the spend limit capped at $20; it rises automatically once Modal processes the first $10 card payment, so size launches to the remaining usage-limit room (a run stopped at the limit is lost).
 2. Code and environment (Python ≥ 3.10 and [`uv`](https://docs.astral.sh/uv/)):
    ```bash
    git clone https://github.com/abhay1105/muloco-data-heterogeneity.git
@@ -38,7 +43,7 @@ All runs execute on [Modal](https://modal.com) GPUs (A100-80GB). Each full run t
 .venv/bin/python scripts/sync_runs.py      # download finished runs, verify, checksum, back up to Hugging Face
 git add runs CHECKPOINTS.sha256 && git commit -m "..." && git push
 ```
-Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifests/phase2.txt` lists all 40.
+Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifests/phase2.txt` lists all 40. (We ran 4 of batch 2 first as `manifests/phase2_batch2a.txt` to fit the new-account spend limit, then the rest; finished runs are skipped automatically.)
 - Re-running a launch is safe: finished runs (with a `summary.json`) are skipped. This is also how failed runs are retried.
 - A run that prints `non-finite loss` / `diverged` is a valid result, not a bug.
 - Don't edit `configs/frozen.yaml` or the manifests.
@@ -55,4 +60,5 @@ Then the same for `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs). `manifes
 python scripts/make_manifest.py {pilot,stageA,stageB,stageC,phase2} ...   # run lists
 python analysis/summarize.py "<run-id glob>" --diag              # markdown results table
 .venv/bin/python analysis/plots.py                               # report figures + H1/H2 tables -> figures/
+.venv/bin/python scripts/sync_runs.py                            # Modal -> runs/ -> Hugging Face backup + checksums
 ```

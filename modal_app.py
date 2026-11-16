@@ -1,6 +1,6 @@
 """Modal wrapper (EXPERIMENT_DESIGN.md §6.2-6.3). The training code itself is platform-independent.
 
-One-time setup (each teammate, in their own workspace):
+One-time setup (once per Modal workspace):
     pip install modal && modal setup
     modal run modal_prepare.py                          # builds the tokenized data volume (CPU only)
 

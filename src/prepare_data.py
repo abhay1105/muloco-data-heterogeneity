@@ -26,7 +26,7 @@ DOMAINS = ("arxiv", "github", "stackexchange", "wikipedia")
 EOT = 50256
 SEQ_LEN = 1024
 
-# Pinned dataset revisions (resolved 2026-11-12) so every teammate builds identical files.
+# Pinned dataset revisions (resolved 2026-11-12) so every rebuild produces identical files.
 SLIM_REPO, SLIM_REV = "DKYoon/SlimPajama-6B", "b5f90f419b7489cdba26fdbc8c022fcb5562f968"
 WIKI_REPO, WIKI_REV = "wikimedia/wikipedia", "b04c8d1ceb2f5cd4588862100d08de323dccfbaa"
 SLIM_SET_NAMES = {

@@ -134,8 +134,8 @@ def style():
 
 
 def save(fig, out, name):
-    for ext in ("png", "pdf"):
-        fig.savefig(os.path.join(out, f"{name}.{ext}"))
+    fig.savefig(os.path.join(out, f"{name}.png"), metadata={"Software": None})
+    fig.savefig(os.path.join(out, f"{name}.pdf"), metadata={"CreationDate": None, "Creator": None, "Producer": None})
     plt.close(fig)
     print("wrote", os.path.join(out, name + ".{png,pdf}"))
 

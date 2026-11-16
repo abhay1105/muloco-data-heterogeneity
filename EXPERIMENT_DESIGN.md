@@ -1,7 +1,7 @@
 # Experimental Design: MuLoCo Under Non-IID Data
 
 *EECS 182 Final Project. Shared reference for the team and for implementation.*
-*Status: v3 (2026-11-13). The codebase is built and the local correctness tests pass. Scope is locked to the **minimal experiment** that answers H1 and H2. Items marked **[MEASURE]** get filled in after the pilot.*
+*Status: v3 design (2026-11-13), **fully executed**. Phase 1 (tuning) finished 2026-11-14 and Phase 2 (40 production runs, 3 seeds) finished 2026-11-15. Results are in `RESULTS.md` §3 and figures in `figures/`. Scope stayed locked to the **minimal experiment** that answers H1 and H2. Items once marked [MEASURE] are filled in from the pilot and production runs.*
 
 ---
 
@@ -18,11 +18,11 @@
   3. Heterogeneity skew **p ∈ {0.25 (IID), 0.5, 0.75, 1.0 (one domain per worker)}**.
   - The sync interval is fixed at **H = 30**.
 - **Heterogeneity is controlled by a deterministic skew `p`, not by random Dirichlet draws.** The global data mixture, and therefore the training objective and the DP baselines, stays identical across all heterogeneity levels (see §3.3).
-- **Budget:** **58 runs** (18 for setup and tuning, 40 production), plus ~20% slack. Measured cost on Modal H100s is about **$55 total** (§6.2), mostly covered by the free $30/month per teammate account.
+- **Budget:** planned **58 R** (18 for setup and tuning, 40 production). Actual: 34 Phase 1 run folders (pilot, Stage A–C plus edge points) and all 40 Phase 2 runs, nothing cut. Actual spend ≈ **$69** on one Modal workspace (§6.2), split across the team.
 - **Workflow:**
   - Phase 1 (us): build the codebase, run smoke tests, pilot, and tune LRs.
-  - Phase 2 (teammates): run frozen commands on hosted GPUs.
-  - Then we compile the outputs (§6.3).
+  - Phase 2: run the 40 frozen commands on hosted GPUs. Planned for teammates' workspaces; in the end one person ran everything (§6.3).
+  - Then compile the outputs (§6.3, §8).
 
 ---
 
@@ -230,7 +230,7 @@ Why weight decay is 0: it removes a tuning dimension and barely matters at about
 
 A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 - Estimated FLOPs: ≈ 6 × (25.2M non-embedding + 25.8M LM-head) params × 4.9e8 tokens, plus attention ≈ **1.8e17 FLOPs**.
-- Estimated time: **~0.25–0.35 h on an H100**, ~0.5 h on an A100. **[MEASURE]** in E0.
+- Measured time: ~10–14 min per run on an H100 (pilot), 19–29 min on an A100-80GB (Phase 2).
 - Simulating workers sequentially adds no FLOPs. Diagnostics add under 3%.
 
 ### 6.1 Run budget
@@ -248,6 +248,8 @@ A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 | | **Phase 2 subtotal** | | **40 R** |
 | | **Total** | | **58 R** (+~10 R slack for reruns or an extra edge-of-grid LR point) |
 
+*Actual:* Phase 1 used 34 runs (4 pilot, 9 Stage A incl. one edge LR, 12+4 Stage B incl. the μ ∈ {0, 0.3} edge points, 4+1 Stage C incl. one edge point). Phase 2 ran all 40 runs; nothing was cut and nothing needed a rerun.
+
 **Phase 2 run order:**
 1. Seed 0 of everything (E1, E2): 12 runs. This alone gives a first answer to H1 and H2.
 2. Remaining seeds.
@@ -257,7 +259,8 @@ A unit **R** is one full-length run of 7,500 steps and ~491.5M tokens.
 ### 6.2 Platform, GPU and cost
 **Platform: [Modal](https://modal.com). GPU: H100 for the pilot and Stage A, A100-80GB from Stage B on (see update below).**
 - Modal runs our training function in a cloud GPU container launched from a laptop command, and bills per second only while code runs. Nothing idles, so a forgotten pod can't run up a bill.
-- The Starter plan includes **$30/month of free credit per workspace**, and each teammate's account has its own. That should cover most or all of the project. **Verify on modal.com/pricing.**
+- The Starter plan includes **$30/month of free credit per workspace**. In the end the whole project ran on one workspace and costs were split across the team.
+- New workspaces start with a **$20 cap on the spend limit** (out-of-pocket charges). The cap rises automatically once Modal has processed a $10 card payment, which happened some time after the threshold was crossed, not instantly. Size each launch to the remaining usage-limit headroom: a run stopped at the limit has no mid-run checkpoint and is wasted.
 - Up to 10 GPUs can run at once, so each tuning stage finishes in roughly one run's wall-clock time.
 - Modal has no 4090s. On Modal, the H100 gives the best cost per run.
 
@@ -285,7 +288,7 @@ Runs are about 2× faster than the original estimate. Every run is well under 30
 | DiLoCo | ~340–390k tok/s | ~28 min | ~$1.15 |
 | MuLoCo | ~290–340k tok/s | ~32 min | ~$1.35 |
 
-Phase 2 (40 runs) comes to **~$45–50**. Split across 3–4 teammates' workspaces, that's about $12–16 each, inside the free $30/month credit. Results don't depend on GPU type; only speed and cost do.
+Phase 2 (40 runs) was estimated at **~$45–50**. **Measured:** ≈ $1.21 per run on average (19–29 min of training per run; DiLoCo/FedAvg-AdamW/DP ≈ 400k tok/s, MuLoCo/FedAvg-Muon ≈ 330–350k tok/s), ≈ $49 for all of Phase 2, ≈ $69 for the whole project. Results don't depend on GPU type; only speed and cost do.
 
 - **Develop for free:** write code and run tiny-config smoke tests and correctness tests on a laptop (CPU or MPS, `--compile 0`). Only spend credits once they pass.
 - **Platform independence:**
@@ -302,10 +305,10 @@ Phase 2 (40 runs) comes to **~$45–50**. Split across 3–4 teammates' workspac
 | Function `train` | GPU, one run per call |
 | Entrypoint `launch` | Runs a manifest file of runs in parallel and skips runs that already have a `summary.json` |
 
-- **Data identity across teammates:**
-  - Each Modal workspace has its own volumes, so each teammate runs `prepare` once.
+- **Data identity across workspaces** (relevant for anyone reproducing the runs):
+  - Each Modal workspace has its own volumes, so `prepare` runs once per workspace.
   - Dataset revisions are pinned and preparation is deterministic.
-  - `meta.json` records a SHA-256 hash of every `.bin` file, and every run logs it. Hashes must match across teammates.
+  - `meta.json` records a SHA-256 hash of every `.bin` file, and every run logs it. Hashes must match `33c0c658fbf49a8a`.
 
 ### 6.3 Workflow
 - **Phase 1 (us):**
@@ -314,7 +317,7 @@ Phase 2 (40 runs) comes to **~$45–50**. Split across 3–4 teammates' workspac
   3. GPU pilot: measure throughput, center the LR grids.
   4. Stages A–C.
   5. Write `configs/frozen.yaml`.
-  6. Produce a **run manifest**: one exact command per Phase 2 run, assigned to a teammate.
+  6. Produce a **run manifest**: one exact command per Phase 2 run.
 - **Phase 2 (one runner, decided 2026-11-15):** the team agreed one person runs all 40 runs on the workspace used for Phase 1, with costs split at the end. Runs go in two batches: `manifests/phase2_batch1.txt` (seed 0, 12 runs, a sanity check against Phase 1) and `manifests/phase2_batch2.txt` (seeds 1–2, 28 runs; can be split with `make_manifest.py phase2 --batch2_parts N` to fit the Modal spend limit).
 - **Collection and backup:** after each batch, `scripts/sync_runs.py` downloads finished runs from the `muloco-runs` volume to `runs/`, verifies them, writes `CHECKPOINTS.sha256`, and uploads everything (logs + checkpoints) to the Hugging Face model repo `paidvenk/muloco-data-heterogeneity`. Logs and checksums are then committed to git. Copies: logs on GitHub, Hugging Face, laptop and Modal; checkpoints on Hugging Face, laptop and Modal. The tokenized data is not archived; it is rebuilt deterministically (pinned revisions, `data_hash`).
 - **Parallelism:** `launch` fans out up to 10 runs at once per workspace.
@@ -367,14 +370,15 @@ All of these are logged to a per-run JSONL file. W&B is optional.
   R_i = [L(FedAvg_i, 1.0) − L(FedAvg_i, 0.25)] − [L(Nest_i, 1.0) − L(Nest_i, 0.25)]
   - H2 predicts R_Muon > R_AdamW > 0, with L(Nest_Muon, 1.0) − L(Nest_Muon, 0.25) still > 0.
 
-### 8.4 Planned figures
-1. Final balanced loss vs h for DiLoCo and MuLoCo, with DP-AdamW and DP-Muon as horizontal bands. *(The headline figure.)*
-2. ΔL_het vs h for both methods, with seed error bars.
-3. Per-domain loss heatmap: method × p × domain.
-4. 2×2 inner × outer grouped bars at p = 0.25 and p = 1.0 (H2).
-5. ρ_F and pairwise cosine over training, one panel per p, both methods overlaid.
-6. Interference gap and nuclear retention vs h.
-7. Worker specialization matrices for p = 1.0, DiLoCo vs MuLoCo.
+### 8.4 Figures (as produced by `analysis/plots.py`, in `figures/`)
+1. Final balanced loss vs h for DiLoCo and MuLoCo, with DP-AdamW and DP-Muon as horizontal bands: `fig2_final_vs_h`. *(The headline figure.)*
+2. ΔL_het vs h for both methods, with seed error bars: `fig3_delta_het`.
+3. Per-domain loss heatmap, method × p × domain: `fig4_domain_heatmap`.
+4. 2×2 inner × outer grouped bars at p = 0.25 and p = 1.0 (H2): `fig5_e2_outer_momentum`.
+5. ρ_F and pairwise cosine over training, one panel per p, both methods overlaid: `fig6_alignment_over_training`.
+6. ρ_F, nuclear retention and interference gap vs h: `fig7_diagnostics_vs_h`.
+7. Worker specialization matrices for p = 1.0, DiLoCo vs MuLoCo: `fig8_specialization`.
+8. Added for the report: train and validation loss curves with seed bands (`fig1_loss_curves`, `fig1b_loss_curves_e2`). Curves use the periodic 250-seq/domain evals; final numbers use the 1000-seq/domain final eval (the two differ by ≈0.02, so they are never mixed).
 
 ---
 
@@ -412,11 +416,17 @@ muloco-data-heterogeneity/
 │   ├── diagnostics.py          # §7 metrics
 │   └── train.py                # Runner: DP + local (DiLoCo-family) loops, eval, logging, summary
 ├── configs/frozen.example.yaml # template; copy to frozen.yaml after Stage C
+├── configs/frozen.yaml         # the frozen Phase 2 hyperparameters
 ├── scripts/make_manifest.py    # writes manifests/{pilot,stageA,stageB,stageC,phase2*}.txt
+├── scripts/sync_runs.py        # Modal volume → runs/ → Hugging Face backup, CHECKPOINTS.sha256
 ├── modal_app.py                # Modal GPU app: train / launch / status
 ├── modal_prepare.py            # Modal CPU app: builds the data volume
 ├── tests/test_core.py          # §10.3 correctness tests (pytest, CPU, synthetic data, ~10 s)
-└── analysis/                   # (to do) §8 figures from runs/*/
+├── analysis/summarize.py       # markdown tables of runs (for RESULTS.md)
+├── analysis/plots.py           # §8 figures + H1/H2 tables → figures/
+├── figures/                    # fig1–fig8 (.png/.pdf) + summary.md
+├── runs/<run_id>/              # logs of every run (checkpoints on Hugging Face)
+└── CHECKPOINTS.sha256          # SHA-256 of every final.pt
 ```
 **Run ID format:** `{method}_p{p}_H{H}_s{seed}` for local runs, `{method}_s{seed}` for DP runs, plus `_{tag}` for tuning runs. Examples: `muloco_p1.00_H30_s0`, `dp_adamw_s0_lr0.003`, `diloco_p0.25_H30_s0_eo0.8_mu0.9`.
 
@@ -435,7 +445,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requi
 
 # Modal (once per workspace)
 modal setup
-modal run modal_prepare.py                          # ~20-40 min CPU; prints data_hash (must match across teammates)
+modal run modal_prepare.py                          # ~20-40 min CPU; prints data_hash (must be 33c0c658fbf49a8a)
 
 # Phase 1
 python scripts/make_manifest.py pilot && modal run modal_app.py::launch --manifest manifests/pilot.txt
@@ -481,7 +491,9 @@ for round r = 0 .. 7500/H − 1:
 ## 11. Known limitations (state these in the report)
 - One model scale (~51M), one token budget (~0.49B), K = 4, H = 30 only.
 - One sync interval (H = 30). Outer hyperparameters are tuned on IID data only and reused for non-IID runs.
-- 2–3 seeds, so conclusions are about effect sizes, not significance tests.
+- 3 seeds, so conclusions are about effect sizes against a pre-stated rule (§2.3), not significance tests.
+- The outer config (η_out 0.8, μ 0.6) was tuned on IID data at half length and reused at every p. H2's "no rescue for Muon" is a statement about this config; outer momentum tuned under skew was not tested.
+- DiLoCo's outer config was chosen at inner lr 1.5e-3 and its inner lr was then lowered to 7.5e-4 (Stage C), without re-sweeping the outer config.
 - Weight decay is 0 and the schedule isn't tuned.
 - Domains come from two sources (SlimPajama for 3 domains, Wikimedia for Wikipedia). Domain "distance" is uneven: StackExchange overlaps with GitHub and ArXiv more than Wikipedia does.
 
@@ -489,10 +501,10 @@ for round r = 0 .. 7500/H − 1:
 
 ## 12. Decisions log
 - ✅ Dirichlet is replaced by the deterministic skew p. The proposal was a draft.
-- ✅ Platform: Modal, each teammate on their own free-credit workspace. GPU: H100 for the pilot and Stage A; **A100-80GB from 2026-11-14** (H100 blocked on the Starter plan). Development and correctness tests happen locally.
+- ✅ Platform: Modal (originally planned as each teammate on their own free-credit workspace; superseded 2026-11-15, see below). GPU: H100 for the pilot and Stage A; **A100-80GB from 2026-11-14** (H100 blocked on the Starter plan). Development and correctness tests happen locally.
 - ✅ Scope: minimal experiment only (E1 + E2 + DP baselines). Everything in "Deferred" waits until that data is collected.
-- ✅ Workflow: we build, test and tune; teammates run frozen commands (§6.3). The collection mechanism will be decided later.
-- ✅ Data built on Modal (2026-11-13): **data_hash = `33c0c658fbf49a8a`**. Each domain has 122,880,001 train, 1,024,001 val and 2,097,153 probe tokens. Every domain hit the 158M collection target (StackExchange needed ~32 of 48 SlimPajama shards). Teammates' `prepare` must reproduce this hash.
+- ✅ Workflow: we build, test and tune; Phase 2 runs frozen commands (§6.3). Collection: `scripts/sync_runs.py` → git (logs) + Hugging Face (checkpoints).
+- ✅ Data built on Modal (2026-11-13): **data_hash = `33c0c658fbf49a8a`**. Each domain has 122,880,001 train, 1,024,001 val and 2,097,153 probe tokens. Every domain hit the 158M collection target (StackExchange needed ~32 of 48 SlimPajama shards). Any rebuild of the data must reproduce this hash.
 - ✅ Phase 1 tuning complete (2026-11-14). Frozen in `configs/frozen.yaml`: AdamW 1.5e-3 (DP / MuLoCo AdamW part), DiLoCo inner 7.5e-4, Muon 1.2e-2, outer 0.8/0.6 Nesterov for DiLoCo and MuLoCo. Details in RESULTS.md §2.
 - ✅ E2 raised to 3 seeds (2026-11-14), so Phase 2 has 40 runs.
 - ✅ Phase 2 runner (2026-11-15): one person runs all 40 runs (costs split at the end) instead of per-teammate manifests; two batches; backups via `scripts/sync_runs.py` to Hugging Face (`paidvenk/muloco-data-heterogeneity`, private until submission). Modal spend limit is capped at $20 for this account until charges build history.

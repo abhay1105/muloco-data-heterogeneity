@@ -13,7 +13,7 @@ A running record of every run, result and observation, kept for the written repo
   - interf_gap: normalized top-5% interference gap.
   - ref_cos: cosine with the DP reference pseudo-gradient.
   - The tables report means over the last 25% of rounds, except ref_cos, which averages all probe rounds.
-- Tables are generated with `python analysis/summarize.py "<glob>" [--diag]` from `runs/` (downloaded with `modal volume get muloco-runs / runs/`).
+- Tables are generated with `python analysis/summarize.py "<glob>" [--diag]` from `runs/` (downloaded with `scripts/sync_runs.py`). Report figures and the H1/H2 tables come from `analysis/plots.py` → `figures/`.
 - Observations are dated. Anything labeled *preliminary* is not yet backed by enough runs or seeds to cite as a result.
 
 ---
@@ -26,7 +26,7 @@ A running record of every run, result and observation, kept for the written repo
 | Tokens per domain | train 122,880,001 · val 1,024,001 · probe 2,097,153 (GPT-2 tokenizer) |
 | Domains / sources | ArXiv, GitHub, StackExchange: `DKYoon/SlimPajama-6B` @ `b5f90f41` (StackExchange needed ~32 of 48 shards). Wikipedia: `wikimedia/wikipedia` 20231101.en @ `b04c8d1c` |
 | Model | 50,930,176 params total: 25,174,528 non-embedding, 25,165,824 in hidden matrices (Muon-managed), 25,755,648 tied embedding |
-| Hardware | Modal, NVIDIA H100 80GB HBM3, PyTorch 2.15.0, `torch.compile`, bf16 autocast |
+| Hardware | Modal. NVIDIA H100 80GB HBM3 for the pilot and Stage A; A100-80GB from Stage B on (incl. all of Phase 2). PyTorch 2.15.0, `torch.compile`, bf16 autocast |
 | Local tests | 22/22 pass (`pytest -q`), including two exactness checks: (1) one worker, H=1, plain averaging reproduces DP training; (2) a FedAvg round with plain SGD equals the mean of the workers' SGD updates |
 
 ---
