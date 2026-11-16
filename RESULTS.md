@@ -263,8 +263,8 @@ All 12 runs finished, none diverged. Train time was 20–25 min per run (DiLoCo/
 | muloco_p1.00_H30_s0 | 2.5580 | 2.137 | 1.496 | 2.311 | 4.289 | 0.499 | −0.001 | 0.266 | 0.412 | 0.357 |
 | fedavg_adamw_p0.25_H30_s0 | 2.5757 | 2.194 | 1.572 | 2.388 | 4.149 | 0.520 | 0.027 | — | 0.477 | 0.265 |
 | fedavg_adamw_p1.00_H30_s0 | 2.6920 | 2.248 | 1.621 | 2.448 | 4.451 | 0.495 | −0.008 | — | 0.531 | 0.235 |
-| fedavg_muon_p0.25_H30_s0 | 2.4206 | | | | | | | | | |
-| fedavg_muon_p1.00_H30_s0 | 2.5506 | | | | | | | | | |
+| fedavg_muon_p0.25_H30_s0 | 2.4206 | 2.072 | 1.442 | 2.239 | 3.930 | 0.508 | 0.011 | — | 0.395 | 0.368 |
+| fedavg_muon_p1.00_H30_s0 | 2.5506 | 2.130 | 1.493 | 2.307 | 4.273 | 0.496 | −0.005 | — | 0.416 | 0.343 |
 
 (Diagnostics: mean over the last 25% of rounds; ref_cos over the 3 probe rounds. DP seed-0 baselines: DP-AdamW 2.3079, DP-Muon 2.2490.)
 
