@@ -1,24 +1,43 @@
 % EECS 182 final project report -- draft.
 % Compile: pdflatex main && bibtex main && pdflatex main && pdflatex main (or upload report/ + figures/ to Overleaf)
 % Figures are read from ../figures/ (regenerate with: .venv/bin/python analysis/plots.py).
-% For a venue submission, swap the preamble for the venue's style file (e.g. neurips_2026.sty); the body is style-agnostic.
-\documentclass[11pt]{article}
+% Style: NeurIPS 2026 (neurips_2026.sty, in this folder). [preprint] shows author names and no line numbers;
+% drop the option for the anonymous, line-numbered submission format.
+\documentclass{article}
 
-\usepackage[margin=1in]{geometry}
+\PassOptionsToPackage{numbers,sort&compress}{natbib}
+\usepackage[preprint]{neurips_2026}
+\makeatletter
+\renewcommand{\@noticestring}{EECS 182 final project report, UC Berkeley, Fall 2026.}
+\makeatother
+
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
 \usepackage{microtype}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{graphicx}
 \usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{placeins}  % \FloatBarrier
+\captionsetup[table]{position=top, skip=6pt}  % table captions sit above the table: add a gap below them
 \usepackage{xcolor}
-\usepackage[numbers,sort&compress]{natbib}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
 
-\graphicspath{{../figures/}}
+\graphicspath{{../figures/}{figures/}{./}}  % repo layout, or a flat Overleaf project
+
+% Let pages end short instead of stretching the space around headings to fill them (the style sets \flushbottom).
+\raggedbottom
+
+% Float-only pages (mostly the appendix): stack figures from the top instead of centring and spreading them out.
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{\floatsep}
+\setlength{\@fpbot}{0pt plus 1fil}
+\makeatother
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\Lhet}{\Delta L_{\mathrm{het}}}
@@ -41,13 +60,13 @@
 
 % ======================================================================================================
 \begin{abstract}
-DiLoCo trains a language model on several workers that each take many local optimizer steps between synchronizations, and MuLoCo shows that replacing DiLoCo's inner AdamW with Muon improves this regime. Both results, however, are obtained with every worker sampling the same data distribution. Federated-learning theory predicts that when workers see different data, local steps drift toward each worker's own optimum, and recent analyses of orthogonalized local updates suggest Muon may be especially exposed. To test this hypothesis directly, we pretrain 51M-parameter GPT models from scratch on four text domains (ArXiv, GitHub, StackExchange, Wikipedia) with four workers, varying a deterministic skew from IID to one-domain-per-worker while holding the global data mixture fixed, and compare DiLoCo, MuLoCo, their plain-averaging (FedAvg) counterparts, and single-worker baselines. Muon keeps the lower loss at every heterogeneity level, but its heterogeneity penalty is larger: $+0.135 \pm 0.009$ vs.\ $+0.101 \pm 0.006$ nats at full skew, so MuLoCo's advantage shrinks by a third and its gap to its own single-worker baseline matches DiLoCo's. Outer Nesterov momentum, the component that distinguishes DiLoCo from FedAvg, slightly reduces AdamW's penalty but gives Muon no benefit. Standard parameter-space drift diagnostics (norm retention, interference gap, alignment with a data-parallel reference) rank the methods the wrong way; a function-space measure, how much each worker's local model specializes to its home domain within a round, does not, and is $1.7\times$ larger for Muon workers. Code, logs, and checkpoints are public.\footnote{\url{https://github.com/abhay1105/muloco-data-heterogeneity}}\footnote{\url{https://huggingface.co/paidvenk/muloco-data-heterogeneity}}
+DiLoCo trains language models with workers that take many local optimizer steps between synchronizations, and MuLoCo improves it by replacing the inner AdamW with Muon, but both were evaluated only with workers that sample the same data. Federated-learning theory predicts that heterogeneous worker data causes local updates to drift, and recent analyses suggest that Muon's orthogonalized updates are especially exposed. We pretrain 51M-parameter GPT models from scratch with four workers on four text domains, varying a deterministic skew from IID to one domain per worker while holding the global data mixture fixed. Muon keeps the lower loss at every skew level, but its heterogeneity penalty is a third larger at full skew ($0.135 \pm 0.009$ vs.\ $0.101 \pm 0.006$ nats), and DiLoCo's outer Nesterov momentum does not reduce it. Standard parameter-space drift diagnostics rank the methods the wrong way; a function-space measure of how much each worker specializes to its home domain within a round ranks them correctly. Code, logs, and checkpoints are public.\footnote{\url{https://github.com/abhay1105/muloco-data-heterogeneity}}\footnote{\url{https://huggingface.co/paidvenk/muloco-data-heterogeneity}}
 \end{abstract}
 
 % ======================================================================================================
 \section{Introduction}
 
-Training large language models normally requires tightly coupled accelerators that exchange gradients at every step. Low-communication methods relax this: in DiLoCo~\cite{douillard2023diloco}, each of $K$ workers runs $H$ inner optimizer steps (AdamW) from a shared model, the workers' parameter changes (\emph{pseudo-gradients}) are averaged, and an outer optimizer (Nesterov momentum) applies the average. Communication drops by a factor of $H$ with little loss in quality, and the method has since been scaled and extended~\cite{jaghouar2024opendiloco,douillard2025streaming,charles2025scaling}. MuLoCo~\cite{therien2025muloco} replaced the inner AdamW with Muon~\cite{jordan2024muon}, an optimizer that orthogonalizes each weight matrix's momentum, and found that it lowers loss and makes pseudo-gradients more compressible and better aligned with the data-parallel update.
+Training large language models normally requires tightly coupled accelerators that exchange gradients at every step. Low-communication methods relax this: in DiLoCo~\cite{douillard2023diloco}, each of $K$ workers runs $H$ inner optimizer steps (AdamW) from a shared model, the workers' parameter changes (\emph{pseudo-gradients}) are averaged, and an outer optimizer (Nesterov momentum) applies the average. Communication drops by a factor of $H$ with little loss in quality, and the method has since been scaled and extended~\cite{jaghouar2024opendiloco,douillard2025streaming,charles2025scaling}. MuLoCo~\cite{therien2025muloco} replaced the inner AdamW with Muon~\cite{jordan2024muon}, an optimizer that orthogonalizes each weight matrix's momentum, and found that it lowers loss and produces pseudo-gradients that are better aligned with the data-parallel update.
 
 These results share one assumption: every worker samples from the same distribution. In settings that motivate low-communication training in the first place (training across data centers, organizations, or data sources that
 cannot be pooled), workers' data are often different. Federated learning (FL) has studied this regime for years. Its central finding is \emph{client drift}: with heterogeneous data, local steps move each worker toward its own optimum, and averaging the results converges to a biased point~\cite{zhao2018noniid,karimireddy2020scaffold,wang2020fednova}. Two recent analyses make a sharper prediction for Muon. \citet{takezawa2026fedmuon} show that naively running LMO-based optimizers such as Muon locally does not converge under heterogeneity, and that server-side momentum does not fix it. \citet{liu2025fedmuon}, by contrast, find local Muon outperforming local AdamW on non-IID image classification. Whether MuLoCo's advantage survives heterogeneous data in language-model pretraining, and whether DiLoCo's outer momentum protects it, is open.
@@ -58,30 +77,43 @@ cannot be pooled), workers' data are often different. Federated learning (FL) ha
   \item \textbf{H2.} Does outer Nesterov momentum reduce the penalty relative to plain averaging (FedAvg), and more so for Muon?
 \end{itemize}
 
-\paragraph{Key Findings}
+\paragraph{Findings.}
 \begin{enumerate}
-  \item MuLoCo has the lower validation loss at every skew level, but its heterogeneity penalty is larger at every level and grows faster with skew (slope $0.174$ vs.\ $0.129$ nats per unit total-variation distance). At full skew the excess is $+0.034 \pm 0.009$ nats, consistent in sign on all seeds and above our pre-registered threshold. MuLoCo's lead over DiLoCo shrinks from $0.105$ to $0.071$ nats, and both methods end ${\approx}13.5\%$ above their own single-worker baselines (\cref{sec:h1}).
-  \item Outer momentum reduces AdamW's penalty only slightly ($0.010$ nats) and does not reduce Muon's at all ($-0.009$); FedAvg-Muon and MuLoCo are indistinguishable at full skew. H2's predicted ordering is reversed (\cref{sec:h2}).
-  \item Parameter-space drift diagnostics (norm retention, interference gap, cosine to a data-parallel reference step) say MuLoCo's pseudo-gradients are \emph{better} aligned and degrade \emph{less} with skew, which contradicts its larger loss penalty. A function-space diagnostic, how far each worker's local model moves toward its home domain within one round, is $1.7\times$ larger for Muon-based workers and orders all four methods the same way as their penalties (\cref{sec:mechanism}).
+  \item MuLoCo has the lower loss at every skew level, but its heterogeneity penalty is larger at every level and grows faster with skew; at full skew the excess ($+0.034 \pm 0.009$ nats) has the same sign on every seed and clears our pre-registered threshold (\cref{sec:h1}).
+  \item Outer Nesterov momentum slightly reduces AdamW's penalty and does not reduce Muon's, reversing the ordering H2 predicted (\cref{sec:h2}).
+  \item Parameter-space drift diagnostics say MuLoCo's updates should degrade \emph{less} with skew, contradicting its larger penalty; a function-space measure of worker specialization is $1.7\times$ larger for Muon-based workers and orders all four methods as their penalties do (\cref{sec:mechanism}).
 \end{enumerate}
 
 % ======================================================================================================
 \section{Background and related work}\label{sec:related}
 
-\paragraph{Local SGD, federated averaging, and client drift.} Periodically averaged local training goes back to local SGD and federated averaging (FedAvg)~\cite{mcmahan2017fedavg,stich2019local,lin2020dont}. With heterogeneous data, local updates are biased toward each client's objective; this \emph{client drift} slows or biases convergence~\cite{zhao2018noniid,kairouz2021advances}. Remedies include proximal terms (FedProx~\cite{li2020fedprox}), control variates (SCAFFOLD~\cite{karimireddy2020scaffold}), normalized averaging
-(FedNova~\cite{wang2020fednova}), and server-side optimizers including momentum and adaptive methods~\cite{hsu2019measuring,reddi2021adaptive}. Heterogeneity is usually simulated with Dirichlet label partitions~\cite{hsu2019measuring}; we instead use a
-deterministic domain skew that keeps the global mixture fixed (\cref{sec:data}).
+\subsection{Local updates and client drift}
 
-\paragraph{DiLoCo and outer optimizers.} DiLoCo~\cite{douillard2023diloco} is FedAvg with AdamW inner steps and an outer Nesterov optimizer applied to the
-averaged pseudo-gradient. Its authors found plain outer averaging clearly worse than Nesterov even on IID data, and reported robustness to non-IID shards made by clustering C4, starting from a pretrained model. Follow-ups scale DiLoCo~\cite{jaghouar2024opendiloco,charles2025scaling} and reduce its communication further~\cite{douillard2025streaming}; HeLoCo~\cite{alasif2026heloco} studies asynchronous DiLoCo under data and device heterogeneity and uses agreement with the outer momentum as a drift signal.
+\paragraph{Local SGD and federated averaging.} In local update methods, each worker takes several optimizer steps on its own data before the workers' models are averaged. Federated averaging (FedAvg)~\cite{mcmahan2017fedavg} introduced this pattern for training on data held by many clients, and local SGD~\cite{stich2019local,lin2020dont} studies the same algorithm in the data center, where, with every worker sampling the same distribution, it matches minibatch SGD while communicating $H$ times less. Heterogeneous data changes the picture: each worker's local steps move toward the minimizer of its own objective rather than the global one, an effect called \emph{client drift}~\cite{zhao2018noniid,karimireddy2020scaffold,kairouz2021advances}. Drift does more than slow training down. \citet{pathak2020fedsplit} show that FedAvg-type methods can converge to points that are not stationary points of the global objective, even for convex problems with deterministic updates. \citet{charles2021convergence} show that, on quadratic models, local update methods perform first-order optimization of a \emph{surrogate} loss whose minimizer differs from the true one; the learning rates and the number of local steps trade the surrogate's conditioning against its agreement with the true loss. Our heterogeneity penalty $\Lhet$ (\cref{sec:hypotheses}) is an empirical measure of this gap: the extra loss caused by redistributing the same data across workers, at fixed $H$ and fixed learning rates.
 
-\paragraph{Muon and MuLoCo.} Muon~\cite{jordan2024muon} keeps a momentum buffer for each hidden weight matrix and replaces it with an approximation of
-its nearest semi-orthogonal matrix (the polar factor, computed by a few Newton-Schulz iterations) before stepping. It can be viewed as steepest descent under a spectral norm, i.e.\ a linear-minimization-oracle (LMO)
-method~\cite{bernstein2024oldoptimizer}, and scales to large LLM training when its update is rescaled to match AdamW's root-mean-square size~\cite{liu2025muonscalable}. MuLoCo~\cite{therien2025muloco} uses Muon as DiLoCo's inner optimizer and finds lower loss and better pseudo-gradient alignment than DiLoCo, on IID data only.
+\paragraph{Correcting drift locally.} FedProx~\cite{li2020fedprox} adds a proximal term that keeps local iterates near the shared model. SCAFFOLD~\cite{karimireddy2020scaffold} subtracts a \emph{control variate}, an estimate of the difference between the worker's gradient and the global gradient, from every local step, and provably removes drift. FedNova~\cite{wang2020fednova} normalizes updates when workers take different numbers of local steps, which would otherwise change the objective being optimized. We do not use any of these corrections: our question is whether the choice of inner optimizer changes how much correction is needed.
 
-\paragraph{Muon under heterogeneity.}
-\citet{takezawa2026fedmuon} prove that running an LMO-based method locally and averaging does not converge to a stationary point under heterogeneity, show server momentum does not remove the bias, and propose a SCAFFOLD-style
-correction. \citet{liu2025fedmuon} report local Muon beating local AdamW on non-IID CIFAR with momentum aggregation and a local-global alignment term. Neither studies language-model pretraining or DiLoCo's outer optimizer; our work measures the effect in that setting with matched tuning and multiple seeds.
+\paragraph{Server optimizers and outer momentum.} A second line of work leaves local training unchanged and changes how the averaged update is applied. \citet{hsu2019measuring} add momentum at the server (FedAvgM) and find that it improves accuracy on non-identically distributed image data. \citet{reddi2021adaptive} treat the averaged model change, the \emph{pseudo-gradient}, as a gradient for a server optimizer such as SGD with momentum, Adam or Yogi (FedOpt). SlowMo~\cite{wang2020slowmo} brings the same idea to data-center training: workers run a base optimizer and synchronize periodically, and a slow momentum step on the averaged change improves optimization and generalization on image classification and machine translation, with convergence guarantees for smooth non-convex objectives. DiLoCo's outer Nesterov step is an instance of this framework. H2 asks whether this outer momentum reduces the cost of heterogeneity in LLM pretraining, and whether its effect depends on the inner optimizer.
+
+\paragraph{Adaptive local optimizers.} Most of the analyses above assume plain SGD on the workers. \citet{wang2021localadaptivity} study local adaptive optimizers such as Adam and find that they can speed up convergence but introduce a non-vanishing \emph{solution bias}: the point they converge to can differ from a stationary point of the global objective. DiLoCo, with AdamW on the workers, is already in this regime. We ask whether replacing AdamW with Muon makes the bias larger or smaller.
+
+\paragraph{Simulating heterogeneity.} Federated-learning experiments usually draw each client's mixture of labels or domains from a Dirichlet distribution~\cite{hsu2019measuring}, as both FedMuon papers discussed below do. With only four workers, independent Dirichlet draws change the global mixture and add sampling noise to how heterogeneous a split actually is, so we use a deterministic domain skew that keeps the global mixture fixed (\cref{sec:data}).
+
+\subsection{Low-communication training of language models}
+
+\paragraph{DiLoCo.} DiLoCo~\cite{douillard2023diloco} is FedAvg with AdamW as the inner optimizer and Nesterov momentum as the outer optimizer, applied to LLM pretraining. Its main experiments use $k=8$ workers that each take $H=500$ inner steps between synchronizations, with outer learning rate $0.7$ and momentum $0.9$; outer SGD (FedAvg) and outer Adam performed poorly in comparison. DiLoCo also includes a non-IID experiment. Its shards come from clustering C4 with $k$-means on a pretrained model's last-layer features into 8 clusters, and, as in its other main experiments, training starts from a model already pretrained for 24{,}000 steps. Non-IID training converged more slowly at first but reached a comparable final perplexity ($15.02$ vs.\ $15.08$ for IID). Our setup differs in ways that could make heterogeneity costlier: we train from scratch, so workers diverge before any shared representation exists; our domains (scientific papers, code, Q\&A and encyclopedia text) differ more than clusters of one web corpus; and we vary the skew in steps rather than comparing a single IID split with a single non-IID split.
+
+\paragraph{Follow-ups.} OpenDiLoCo~\cite{jaghouar2024opendiloco} reproduces DiLoCo in an open-source framework and trains across two continents. Streaming DiLoCo~\cite{douillard2025streaming} synchronizes subsets of parameters on a schedule, overlaps communication with computation and quantizes the outer gradients, reducing the required bandwidth by two orders of magnitude. \citet{charles2025scaling} find that DiLoCo's loss scales predictably with model size under a fixed compute budget. These works focus on scale and communication; none varies how data is distributed across workers.
+
+\paragraph{Federated and decentralized LLM pretraining.} Federated systems also pretrain LLMs across organizations. Photon~\cite{sani2025photon} pretrains models of up to 7B parameters with federated averaging and reports better perplexity than centralized training while communicating far less. DEPT~\cite{iacob2025dept} targets heterogeneous sources directly: it decouples the token embeddings from the transformer body and shares only the body, so data sources need not even share a vocabulary. HeLoCo~\cite{alasif2026heloco} is the closest to our setting. It is an asynchronous DiLoCo in which five workers, running at different speeds, train a small (15M-parameter) model on language shards of multilingual C4. Each returning pseudo-gradient is compared, block by block, with the outer momentum, and components that conflict with it are shrunk or rotated toward it; this improves on asynchronous Nesterov at a fixed token budget. Branch-Train-Merge~\cite{li2022btm} takes the opposite approach: it trains domain-expert models independently, with no synchronization, and combines them afterward, and it finds that this works only when the experts specialize to domains. Specialization is the goal there; when worker models are averaged every $H$ steps, as here, it is the source of drift. These works design methods around heterogeneity. We instead measure how the choice of inner optimizer changes its cost, with matched tuning.
+
+\subsection{Muon, MuLoCo, and Muon under heterogeneity}
+
+\paragraph{Muon.} Muon~\cite{jordan2024muon} keeps a momentum buffer for each hidden weight matrix and, before each step, replaces it with an approximation of its polar factor $UV^\top$ (where $U\Sigma V^\top$ is its SVD), computed with a few Newton--Schulz iterations (\cref{sec:setup}). Every singular value of the update becomes roughly one, so the step size does not depend on the size of the gradient, and directions with a small gradient signal get the same step as the dominant ones. \citet{bernstein2024oldoptimizer} interpret this as steepest descent under the spectral norm. Equivalently, the update direction is the output of a \emph{linear minimization oracle} (LMO), $\arg\min_{\lVert X\rVert_{\mathrm{op}} \le 1} \langle G, X\rangle = -UV^\top$, so Muon belongs to the family of LMO-based optimizers. \citet{liu2025muonscalable} scale Muon to LLM training, in part by rescaling its update to AdamW's root-mean-square size, the scaling we use.
+
+\paragraph{MuLoCo.} MuLoCo~\cite{therien2025muloco} uses Muon as DiLoCo's inner optimizer. It pretrains models from 150M to 3.1B parameters with $K \in \{1,2,4,8,16\}$ workers and $H=30$ by default. MuLoCo reaches lower loss than DiLoCo for every $K$, and for $K>2$ also a smaller gap to its own data-parallel baseline. The paper also studies compressing pseudo-gradients (quantization and top-$k$ sparsification, with and without error feedback) and analyzes their geometry. Relative to AdamW, Muon's pseudo-gradients point more accurately in the data-parallel direction as $K$ grows. The normalized \emph{interference gap}, the share of the workers' leading singular-value mass lost when their updates are averaged (\cref{sec:diagnostics}), grows with $K$ for DiLoCo but shrinks for MuLoCo. All of these results come from workers that sample the same data. We adopt MuLoCo's $H$, its Muon configuration and its interference gap, and ask whether its advantages survive when the workers' data differ; our models (51M parameters) are smaller, and we use $K=4$.
+
+\paragraph{Muon under heterogeneous data.} Two recent federated-learning papers reach different conclusions. \citet{takezawa2026fedmuon} prove that FedAvg with Muon as the local optimizer does not converge to a stationary point under heterogeneity, because the LMO is a biased operator. In their two-client counterexample the parameters never leave their initial value. They note that the algorithm they analyze is MuLoCo with the server momentum removed (our FedAvg-Muon), and that adding server momentum does not fix the counterexample. Their fix, also called FedMuon, applies SCAFFOLD-style control variates to each client's momentum before the LMO and converges for any number of Newton--Schulz iterations; their experiments use FashionMNIST and CIFAR-10 with 16 clients. \citet{liu2025fedmuon}, by contrast, find that local Muon already beats local AdamW and FedAvg on CIFAR-100 under strong Dirichlet heterogeneity ($66.7\%$ accuracy vs.\ $59.0\%$ and $60.3\%$ with ResNet-18). They attribute the remaining drift to each client's preconditioner and to resetting optimizer moments every round. Their FedMuon starts each client's momentum from the clients' averaged momentum and mixes the orthogonalized local update with the previous round's global update, reaching $73.1\%$ in the same setting. (Our workers keep their inner optimizer state across rounds, so moment resetting does not arise here.) Read together, the two papers predict that Muon stays ahead in absolute terms~\cite{liu2025fedmuon} but carries a heterogeneity bias that server momentum does not remove~\cite{takezawa2026fedmuon}; H1 and H2 test both predictions. Neither paper studies language-model pretraining or DiLoCo's tuned outer Nesterov step, or compares the inner optimizers' penalties under matched tuning across several seeds.
 
 % ======================================================================================================
 \section{Setup}\label{sec:setup}
@@ -95,29 +127,46 @@ and the outer optimizer treats $\bar\Delta$ as a gradient. With Nesterov momentu
 \begin{equation}
   m \leftarrow \mu m + \bar\Delta, \qquad \theta^{(r+1)} = \theta^{(r)} - \eta_{\mathrm{out}}\,(\bar\Delta + \mu m).
 \end{equation}
-FedAvg is the special case $\eta_{\mathrm{out}} = 1$, $\mu = 0$, i.e.\ $\theta^{(r+1)} = \frac1K\sum_k \theta_k^{(r)}$.
-We compare six methods, crossing the inner optimizer with the outer scheme:
+FedAvg is the special case $\eta_{\mathrm{out}} = 1$, $\mu = 0$, i.e.\ $\theta^{(r+1)} = \frac1K\sum_k \theta_k^{(r)}$. \Cref{alg:local} gives the full procedure.
 
-\begin{center}
-\begin{tabular}{lll}
-  \toprule
-  & Inner AdamW & Inner Muon \\
-  \midrule
-  Outer Nesterov & DiLoCo~\cite{douillard2023diloco} & MuLoCo~\cite{therien2025muloco} \\
-  Outer plain averaging & FedAvg-AdamW & FedAvg-Muon \\
-  Single worker (data-parallel) & DP-AdamW & DP-Muon \\
-  \bottomrule
-\end{tabular}
-\end{center}
+\begin{algorithm}[!htb]
+  \caption{One training run of a local method (DiLoCo, MuLoCo, FedAvg-AdamW or FedAvg-Muon).}
+  \label{alg:local}
+  \small
+  \begin{algorithmic}[1]
+    \Require $\theta^{(0)}$; worker data $\mathcal{D}_1,\dots,\mathcal{D}_K$; \textsc{Inner} $\in$ \{AdamW, Muon\}; $H$; rounds $R$; outer $\eta_{\mathrm{out}}, \mu$
+    \State $m \gets 0$; initialize inner optimizer states $s_1,\dots,s_K$ \Comment{states persist across rounds}
+    \For{$r = 0, \dots, R-1$}
+      \For{$k = 1, \dots, K$} \Comment{simulated one after another on one GPU}
+        \State $\theta_k \gets \theta^{(r)}$
+        \For{$t = 1, \dots, H$} \Comment{learning-rate schedule indexed by $rH + t$}
+          \State $g \gets \nabla \ell(\theta_k; \text{next batch of 16 sequences from } \mathcal{D}_k)$
+          \State $(\theta_k, s_k) \gets \textsc{Inner}(\theta_k, s_k, g)$
+        \EndFor
+        \State $\Delta_k \gets \theta^{(r)} - \theta_k$
+      \EndFor
+      \State $\bar\Delta \gets \frac1K \sum_{k} \Delta_k$
+      \State $m \gets \mu m + \bar\Delta$; \quad $\theta^{(r+1)} \gets \theta^{(r)} - \eta_{\mathrm{out}}\,(\bar\Delta + \mu m)$ \Comment{FedAvg: $\eta_{\mathrm{out}} = 1$, $\mu = 0$}
+    \EndFor
+    \State \Return $\theta^{(R)}$
+  \end{algorithmic}
+\end{algorithm}
+We compare six methods, crossing the inner optimizer (AdamW or Muon) with the outer scheme: outer Nesterov momentum (DiLoCo~\cite{douillard2023diloco} and MuLoCo~\cite{therien2025muloco}), plain averaging (FedAvg-AdamW and FedAvg-Muon), and a single data-parallel worker as a reference (DP-AdamW and DP-Muon).
 
-Muon is applied to every 2D weight matrix inside the transformer blocks; the tied embedding/output matrix and the normalization gains use AdamW, identically in DP-Muon, MuLoCo and FedAvg-Muon. Muon's update for a matrix
-$W \in \R^{m\times n}$ with momentum buffer $B$ and gradient $G$ is
-$W \leftarrow W - \eta \cdot 0.2\sqrt{\max(m,n)}\cdot \mathrm{NS}_5(G + \beta B)$, where $\mathrm{NS}_5$ is five Newton-Schulz iterations approximating the polar factor and the $0.2\sqrt{\max(m,n)}$ factor puts Muon learning rates on AdamW's scale~\cite{liu2025muonscalable}. Each worker keeps its own inner optimizer state across rounds; states are never averaged or reset, following DiLoCo.
+Muon is applied to every 2D weight matrix inside the transformer blocks; the tied embedding/output matrix and the normalization gains use AdamW, identically in DP-Muon, MuLoCo and FedAvg-Muon. For a matrix $W \in \R^{m\times n}$ with gradient $G$, Muon (as implemented in \texttt{torch.optim.Muon}) keeps a momentum buffer $B$ and steps
+\begin{equation}
+  B \leftarrow \beta B + (1-\beta)\,G, \qquad M = (1-\beta)\,G + \beta B, \qquad W \leftarrow W - \eta \cdot 0.2\sqrt{\max(m,n)} \cdot \mathrm{NS}_5(M),
+\end{equation}
+with $\beta = 0.95$ ($M$ is the Nesterov form of the momentum). $\mathrm{NS}_5$ sets $X \leftarrow M / \lVert M \rVert_F$ and applies five Newton--Schulz iterations
+\begin{equation}
+  X \leftarrow aX + b\,(XX^\top)X + c\,(XX^\top)^2 X, \qquad (a, b, c) = (3.4445,\, -4.7750,\, 2.0315).
+\end{equation}
+If $X = U\Sigma V^\top$, each iteration keeps $U$ and $V$ and maps every singular value $\sigma$ to $a\sigma + b\sigma^3 + c\sigma^5$. The coefficients push all singular values into a band around one (roughly $0.5$ to $1.5$), so $\mathrm{NS}_5(M) \approx UV^\top$, the orthogonalized momentum, computed with matrix multiplications only. The factor $0.2\sqrt{\max(m,n)}$ gives the update roughly the root-mean-square size of an AdamW update, which puts Muon learning rates on AdamW's scale~\cite{liu2025muonscalable}. Each worker keeps its own inner optimizer state across rounds; states are never averaged or reset, following DiLoCo.
 
 \subsection{Data and heterogeneity}\label{sec:data}
 We use four domains: ArXiv, GitHub, and StackExchange from SlimPajama-6B (a subsample of SlimPajama~\cite{cerebras2023slimpajama}) and English Wikipedia (20231101 dump~\cite{wikimedia2023wikipedia}), tokenized with the GPT-2 tokenizer~\cite{radford2019gpt2}. Each domain contributes exactly $122.88$M training tokens, $1.02$M validation tokens, and a separate $2.1$M-token probe pool. Dataset revisions are pinned and the processed data are identified by a content hash.
 
-Worker $k$ has home domain $k$. A skew parameter $p \in \{0.25, 0.5, 0.75, 1\}$ sets worker $k$'s mixture to fraction $p$ from its home domain and $(1-p)/3$ from each other domain. Each domain's training tokens are cut into disjoint slices in these proportions, so every column of the allocation matrix sums to one: the \emph{global} mixture is uniform for every $p$, every method trains on the same token multiset, and no token is seen twice. We report heterogeneity as the total-variation distance between a worker's mixture and the global mixture, $h = p - 0.25 \in \{0, 0.25, 0.5, 0.75\}$. Unlike Dirichlet partitions, this keeps the objective identical across
+Worker $k$ has home domain $k$. A skew parameter $p \in \{0.25, 0.5, 0.75, 1\}$ sets worker $k$'s mixture to fraction $p$ from its home domain and $(1-p)/3$ from each other domain. Each domain's training tokens are cut into disjoint slices in these proportions, so across the four workers each domain's share adds up to one: the \emph{global} mixture is uniform for every $p$, every method trains on the same token multiset, and no token is seen twice. We report heterogeneity as the total-variation distance between a worker's mixture and the uniform global mixture, $h = p - 0.25 \in \{0, 0.25, 0.5, 0.75\}$ (the same for every worker). Unlike Dirichlet partitions, this keeps the objective identical across
 heterogeneity levels, so the single-worker baselines are shared and differences in loss are attributable to how the data is distributed rather than what data is used.
 
 \subsection{Model and training}
@@ -125,7 +174,9 @@ The model is a decoder-only transformer with 8 layers, width 512, 8 heads, RoPE~
 
 \subsection{Tuning protocol}
 All hyperparameters were tuned on IID data only and frozen before any heterogeneous run. (1)~DP learning-rate sweeps at full length chose AdamW $1.5\times10^{-3}$ and Muon $1.2\times10^{-2}$ (with AdamW $1.5\times10^{-3}$ for the non-Muon parameters); these runs double as the seed-0 DP baselines. (2)~A half-length sweep over $\eta_{\mathrm{out}} \in \{0.5, 0.8, 1.0\}$ and $\mu \in \{0, 0.3, 0.6, 0.9\}$ chose $(0.8, 0.6)$ for both DiLoCo and
-MuLoCo. (3)~A check of the inner learning rate at that outer setting lowered DiLoCo's inner rate to $7.5\times10^{-4}$ and left MuLoCo's unchanged (its loss was flat within $0.002$ over a $4\times$ range). FedAvg arms reuse the inner rates of their Nesterov counterparts. Full sweep results are in \cref{app:tuning}.
+MuLoCo. (3)~A check of the inner learning rate at that outer setting lowered DiLoCo's inner rate to $7.5\times10^{-4}$ and left MuLoCo's unchanged (its loss was flat within $0.002$ over a $4\times$ range). FedAvg arms reuse the inner rates of their Nesterov counterparts. Full sweep results are in \cref{app:tuning}, and \cref{tab:hparams} gives every hyperparameter with the reason for its value.
+
+\paragraph{What each comparison controls.} Each comparison changes as little as we could make it change. Across skew levels, only the assignment of tokens to workers changes; the token multiset, global mixture, model, seeds, number of steps and every hyperparameter stay fixed. Between Nesterov and FedAvg, only the outer settings $(\eta_{\mathrm{out}}, \mu)$ change. Between AdamW and Muon, two things change together: the optimizer and its learning rates, each tuned on IID data. Tuning each optimizer separately is the usual way to compare optimizers, because a shared learning rate would favor one of them; the cost is a confound we discuss in \cref{sec:discussion}. Every method sees the same 65{,}536 tokens per step for the same 7{,}500 steps. Relative to the literature, our IID comparison of MuLoCo with DiLoCo differs from \citet{therien2025muloco} in model size (51M vs.\ at least 150M parameters), data and number of workers ($K=4$ vs.\ their default of 8), so it checks that the direction of their result holds in our setting rather than replicating it.
 
 \subsection{Metrics, hypotheses and decision rules}\label{sec:hypotheses}
 The primary metric is the domain-balanced validation loss $L$ (mean of the four per-domain losses) of the outer model after training, on the full 1M-token validation set per domain. The \emph{heterogeneity penalty} of method $m$ is $\Lhet(m, p) = L(m, p) - L(m, 0.25)$, computed per seed (seeds fix initialization and data order and are shared across methods, so differences are paired) and then averaged. We also report the gap to the same optimizer's DP baseline, $G_{\mathrm{DP}} = L/L_{\mathrm{DP}} - 1$.
@@ -139,12 +190,12 @@ differences $\Lhet(\mathrm{MuLoCo}) - \Lhet(\mathrm{DiLoCo})$; a direction is de
 \end{equation}
 and H2 predicts $R_{\mathrm{Muon}} > R_{\mathrm{AdamW}} > 0$ with a nonzero residual penalty under Nesterov.
 
-All production conditions use three seeds: 24 runs for DiLoCo/MuLoCo $\times$ 4 skews, 12 for FedAvg $\times$ $\{0.25, 1\}$, and 6 DP baselines, 42 runs in total, none of which diverged. Error bars are $\pm$ one sample standard deviation over seeds. The production runs used about 18 A100-hours (24 GPU-hours including tuning).
+All production conditions use three seeds: 24 runs for DiLoCo/MuLoCo $\times$ 4 skews, 12 for FedAvg $\times$ $\{0.25, 1\}$, and 6 DP baselines, 42 runs in total, none of which diverged. The production runs used about 18 A100-hours (24 GPU-hours including tuning).
+
+\paragraph{Seeds, error bars and axes.} Seeds $0, 1, 2$ set the initialization and the order of the training data. They are shared across methods and skew levels, so comparisons between methods or skews are paired by seed. Every error bar and band is $\pm 1$ sample standard deviation over the three seeds; for a difference (such as $\Lhet$ or $R_i$) it is the standard deviation of the per-seed differences. We show standard deviations rather than standard errors or confidence intervals because what we want to display is how much a result moves between seeds; with $n = 3$, a $t$-based 95\% interval would be $\pm 2.48$ standard deviations and mostly reflect the small sample. Directional claims rest on the pre-registered rules above, and we report every per-seed difference for the key contrasts. All plot axes are linear. Loss is in nats per token, i.e.\ log-perplexity, so a vertical gap of $\delta$ means a perplexity ratio of $e^{\delta}$ anywhere on the axis.
 
 \subsection{Drift diagnostics}\label{sec:diagnostics}
-On the Muon-managed hidden matrices (identical tensors in all methods) we log, every round: the \emph{norm retention} $\rho_F = \lVert\bar\Delta\rVert_F / \frac1K\sum_k\lVert\Delta_k\rVert_F$ (1 for identical workers, $1/\sqrt{K}=0.5$ for orthogonal equal-norm workers); the mean pairwise cosine between $\Delta_k$'s; and, for Nesterov runs, the cosine
-between $\bar\Delta$ and the outer momentum. Every 300 steps we compute the nuclear-norm retention $\rho_*$ and the normalized interference gap of \citet{therien2025muloco} over the top 5\% of singular values. At 25/50/75\% of training we also compute (i) the cosine between $\bar\Delta$ and a reference pseudo-gradient from $H$ data-parallel steps on the
-uniform probe pool from the same starting point and averaged optimizer state, and (ii) a $4\times4$ \emph{specialization matrix} of each worker's local model evaluated on each domain before averaging.
+On the Muon-managed hidden matrices (the same tensors in every method) we measure how much of the workers' updates survives averaging and how well the averaged update aligns with reference directions. Every round we log the \emph{norm retention} $\rho_F = \lVert\bar\Delta\rVert_F / \frac1K\sum_k\lVert\Delta_k\rVert_F$ (1 for identical workers, $1/\sqrt{K} = 0.5$ for orthogonal workers of equal norm), the mean pairwise cosine between workers' pseudo-gradients, and the cosine between $\bar\Delta$ and the outer momentum. Every 300 steps we compute the nuclear-norm retention $\rho_*$ and the normalized \emph{interference gap} of \citet{therien2025muloco}, the share of the workers' leading singular-value mass lost when their updates are averaged. At 25, 50 and 75\% of training we compute the cosine between $\bar\Delta$ and a data-parallel reference step, and a $4\times4$ \emph{specialization matrix} of each worker's local model evaluated on each domain before averaging, from which we derive (post hoc) each worker's \emph{home-domain advantage}. \Cref{app:diagnostics} gives exact definitions.
 
 % ======================================================================================================
 \section{Results}\label{sec:results}
@@ -152,7 +203,7 @@ uniform probe pool from the same starting point and averaged optimizer state, an
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{fig1_loss_curves.pdf}
-  \caption{Training (top, smoothed) and validation (bottom) loss of DiLoCo (left) and MuLoCo (right) at each skew level, with the same optimizer's single-worker DP baseline dotted. Bands are $\pm 1$ std over 3 seeds. Validation curves use fixed 256K-token subsets per domain; final numbers in the tables use the full 1M-token sets, which read ${\approx}0.02$ higher. The penalty from skew appears early and persists to the end of training.}
+  \caption{Training (top) and validation (bottom) loss of DiLoCo (left) and MuLoCo (right) at each skew level, with the same optimizer's single-worker DP baseline dotted. Bands are $\pm 1$ std over 3 seeds. Training loss is the workers' mean loss on their own data during each round, smoothed with a trailing 300-step moving average (DP: 1{,}000 steps); because skewed workers train on different mixtures, it is not comparable across $p$, while validation loss is. The y-axis is cut at 3.6, hiding roughly the first 900 steps. Validation curves use fixed 256K-token subsets per domain; the tables use the full 1M-token sets, which read ${\approx}0.02$ higher.}
   \label{fig:curves}
 \end{figure}
 
@@ -163,10 +214,12 @@ On IID data MuLoCo reaches $2.420 \pm 0.006$ and DiLoCo $2.525 \pm 0.006$ (\cref
   \centering
   \caption{Final domain-balanced validation loss (nats/token), mean $\pm$ std over 3 seeds. Lower is better. DP baselines train on the same data with one worker and do not depend on $p$.}
   \label{tab:final}
-  \small
-  \begin{tabular}{lcccc}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}lcccc@{}}
     \toprule
-    Method & $p=0.25$ ($h=0$, IID) & $p=0.5$ ($h=0.25$) & $p=0.75$ ($h=0.5$) & $p=1$ ($h=0.75$) \\
+    Method & $p=0.25$ & $p=0.5$ & $p=0.75$ & $p=1$ \\
+           & ($h=0$, IID) & ($h=0.25$) & ($h=0.5$) & ($h=0.75$) \\
     \midrule
     DiLoCo       & $2.5245 \pm 0.0064$ & $2.5263 \pm 0.0090$ & $2.5442 \pm 0.0026$ & $2.6259 \pm 0.0057$ \\
     MuLoCo       & $\mathbf{2.4196 \pm 0.0062}$ & $\mathbf{2.4282 \pm 0.0037}$ & $\mathbf{2.4568 \pm 0.0030}$ & $2.5548 \pm 0.0031$ \\
@@ -201,16 +254,19 @@ On IID data MuLoCo reaches $2.420 \pm 0.006$ and DiLoCo $2.525 \pm 0.006$ (\cref
 Both methods lose little at mild skew and much more at full skew: the penalty is convex in $h$ (\cref{fig:delta_het}, \cref{tab:h1}). At every $h>0$, MuLoCo's penalty is larger, and the per-seed differences are positive on all three seeds at every level. At $h = 0.75$, the difference is $+0.034 \pm 0.009$ nats (per seed $+0.041, +0.037, +0.024$), well above the pre-registered threshold of $2 \times 0.0064 = 0.013$; at $h = 0.5$, it is $+0.018 \pm 0.002$, also above threshold; at $h = 0.25$, it is $+0.007 \pm 0.003$, below threshold. By our decision rule, \textbf{H1-FL is supported:
 Muon's heterogeneity penalty grows faster than AdamW's.} A least-squares fit of $\Lhet$ against $h$ gives slopes of $0.174$ (MuLoCo) and $0.129$ (DiLoCo) nats per unit $h$.
 
-This does not overturn MuLoCo's advantage in absolute terms: it remains ahead at full skew by $0.071 \pm 0.007$ nats, down from $0.105 \pm 0.003$ at IID. Relative to each optimizer's own DP baseline, however, the advantage disappears: $G_{\mathrm{DP}}$ rises from $7.5\%$ to $13.5\%$ for MuLoCo and from $9.2\%$ to $13.6\%$ for DiLoCo.
+MuLoCo still leads in absolute terms: it is ahead at full skew by $0.071 \pm 0.007$ nats, down from $0.105 \pm 0.003$ at IID. Relative to each optimizer's own DP baseline, however, the advantage disappears: $G_{\mathrm{DP}}$ rises from $7.5\%$ to $13.5\%$ for MuLoCo and from $9.2\%$ to $13.6\%$ for DiLoCo.
 
 \begin{table}[t]
   \centering
   \caption{H1. Heterogeneity penalty $\Lhet = L(p) - L(0.25)$, paired by seed (mean $\pm$ std over 3 seeds), its least-squares slope against $h$, and the gap to the same optimizer's DP baseline.}
   \label{tab:h1}
-  \small
-  \begin{tabular}{lccccc}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}lccccc@{}}
     \toprule
-    & $h=0.25$ & $h=0.5$ & $h=0.75$ & slope & $G_{\mathrm{DP}}$: IID $\to$ $h=0.75$ \\
+    & \multicolumn{3}{c}{$\Lhet$} & & $G_{\mathrm{DP}}$ \\
+    \cmidrule(lr){2-4}
+    & $h=0.25$ & $h=0.5$ & $h=0.75$ & slope & IID $\to$ $h=0.75$ \\
     \midrule
     DiLoCo & $+0.0018 \pm 0.0057$ & $+0.0197 \pm 0.0040$ & $+0.1014 \pm 0.0059$ & $0.129$ & $9.2\% \to 13.6\%$ \\
     MuLoCo & $+0.0086 \pm 0.0040$ & $+0.0373 \pm 0.0032$ & $+0.1352 \pm 0.0086$ & $0.174$ & $7.5\% \to 13.5\%$ \\
@@ -220,13 +276,13 @@ This does not overturn MuLoCo's advantage in absolute terms: it remains ahead at
   \end{tabular}
 \end{table}
 
-\paragraph{Where the penalty comes from.} Per domain (\cref{app:figures}, \cref{fig:heatmap}), Wikipedia, the domain least like the other three, carries most of the penalty: going from IID to full skew adds $+0.30$ (DiLoCo) and $+0.36$ (MuLoCo) nats on Wikipedia versus $+0.03$ to $+0.07$ elsewhere. MuLoCo's \emph{excess} penalty, however, appears on every domain (ArXiv $+0.061$ vs.\ $+0.036$; GitHub $+0.049$ vs.\ $+0.028$; StackExchange $+0.073$ vs.\ $+0.045$; Wikipedia $+0.358$ vs.\ $+0.297$), so it is not an artifact of one outlier domain.
+\paragraph{Where the penalty comes from.} Per domain (\cref{fig:heatmap} in \cref{app:figures}), Wikipedia, the domain least like the other three, carries most of the penalty: going from IID to full skew adds $+0.30$ (DiLoCo) and $+0.36$ (MuLoCo) nats on Wikipedia versus $+0.03$ to $+0.07$ elsewhere. MuLoCo's penalty is nonetheless larger than DiLoCo's on every domain, so its excess is not an artifact of one outlier domain.
 
 \subsection{H2: outer momentum does not rescue Muon}\label{sec:h2}
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.95\linewidth]{fig5_e2_outer_momentum.pdf}
+  \includegraphics[width=\linewidth]{fig5_e2_outer_momentum.pdf}
   \caption{H2. Left: final loss for each inner $\times$ outer combination at IID (lighter) and full skew (darker); hatched bars are FedAvg. Right: heterogeneity penalty $L(p{=}1) - L(p{=}0.25)$ paired by seed. Outer momentum slightly lowers the penalty for AdamW and slightly raises it for Muon.}
   \label{fig:h2}
 \end{figure}
@@ -254,26 +310,16 @@ updates, though our experiment does not isolate that mechanism.
 
 \subsection{Mechanism: parameter-space diagnostics disagree with the loss; function-space drift agrees}\label{sec:mechanism}
 
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\linewidth]{fig7_diagnostics_vs_h.pdf}
-  \caption{Parameter-space diagnostics on the hidden matrices, averaged over the last 25\% of rounds (mean $\pm$ std over seeds; error bars are smaller than the markers). By these measures, MuLoCo's averaged updates lose less to
-  cancellation than DiLoCo's and degrade less with heterogeneity, the opposite of their loss penalties.}
-  \label{fig:diag}
-\end{figure}
-
-We planned to check H1's mechanism by asking whether the drift diagnostics fall more steeply with $h$ for whichever method degrades more. They do not (\cref{fig:diag}, \cref{tab:diag}). From IID to full skew, DiLoCo's norm retention falls from $0.532$ to $0.502$ and its interference gap rises from $0.461$ to $0.522$; MuLoCo's changes are about half as large ($0.514 \to 0.499$; $0.386 \to 0.412$). MuLoCo's averaged update is also better aligned with the outer momentum (${\approx}0.25$ vs.\ $0.05$-$0.09$) and with the data-parallel reference step ($0.383 \to 0.356$ vs.\ $0.312 \to 0.272$). Two further observations temper all of these measures: even at IID, $\rho_F$ is close to the orthogonal value $0.5$ and pairwise cosines are near zero late in training (\cref{fig:alignment}), so per-round pseudo-gradients are dominated by noise rather than by a shared direction; heterogeneity moves these quantities by only a few hundredths.
+We planned to check H1's mechanism by asking whether the drift diagnostics fall more steeply with $h$ for whichever method degrades more. They do not (\cref{tab:diag}; plotted in \cref{fig:diag}). From IID to full skew, DiLoCo's norm retention falls from $0.532$ to $0.502$ and its interference gap rises from $0.461$ to $0.522$; MuLoCo's changes are about half as large ($0.514 \to 0.499$; $0.386 \to 0.412$). MuLoCo's averaged update is also better aligned with the outer momentum (${\approx}0.25$ vs.\ $0.05$-$0.09$) and with the data-parallel reference step ($0.383 \to 0.356$ vs.\ $0.312 \to 0.272$). All of these quantities are small in absolute terms: even at IID, $\rho_F$ is close to the orthogonal value $0.5$ and pairwise cosines are near zero late in training (\cref{fig:alignment}), so per-round pseudo-gradients are dominated by noise rather than by a shared direction; heterogeneity moves these quantities by only a few hundredths.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.55\linewidth]{fig9_home_advantage.pdf}
-  \caption{Function-space drift (post-hoc). Home-domain advantage of the workers' local models just before averaging, at 75\% of training: for each domain, the mean loss of the other workers' local models minus the home worker's, averaged over domains. Filled markers: Nesterov outer; open squares: FedAvg (run at $p\in\{0.25,1\}$ only). Muon-based workers specialize ${\approx}1.7\times$ more within a 30-step round.}
+  \caption{Function-space drift (post hoc): home-domain advantage of the workers' local models just before averaging, at 75\% of training (\cref{app:diagnostics}). Filled circles: Nesterov outer; open squares: FedAvg (run at $p \in \{0.25, 1\}$ only). Muon-based workers specialize ${\approx}1.7\times$ more within a 30-step round.}
   \label{fig:home}
 \end{figure}
 
-A different picture emerges in function space. Using the specialization matrices, we measure each worker's \emph{home-domain advantage}: how much better its local model is on its own domain than the other workers' local
-models are, at the end of a round and before averaging. At IID, the advantage
-is zero for all methods, as expected. At full skew it is $0.071 \pm 0.001$ for DiLoCo and $0.070 \pm 0.002$ for FedAvg-AdamW, but $0.118 \pm 0.001$ for MuLoCo and $0.125 \pm 0.004$ for FedAvg-Muon (\cref{fig:home}, \cref{tab:home}): within the same 30 steps, Muon workers move about $1.7\times$ further toward their home domain. This ordering (Muon-based above AdamW-based, outer optimizer nearly irrelevant) is exactly the ordering of the
+Function-space drift does track the penalty. The \emph{home-domain advantage} (\cref{app:diagnostics}) measures how much better each worker's local model is on its own domain than the other workers' local models are, at the end of a round and before averaging. At IID it is zero for all methods, as expected. At full skew it is $0.071 \pm 0.001$ for DiLoCo and $0.070 \pm 0.002$ for FedAvg-AdamW, but $0.118 \pm 0.001$ for MuLoCo and $0.125 \pm 0.004$ for FedAvg-Muon (\cref{fig:home}, \cref{tab:home}): within the same 30 steps, Muon workers move about $1.7\times$ further toward their home domain. This ordering (Muon-based above AdamW-based, outer optimizer nearly irrelevant) is exactly the ordering of the
 heterogeneity penalties in \cref{tab:h2}.
 
 % ======================================================================================================
@@ -282,7 +328,7 @@ heterogeneity penalties in \cref{tab:h2}.
 \paragraph{Why would better-aligned updates degrade more?} Our parameter-space diagnostics measure agreement among workers' updates and with a reference direction; they say little about how far each update moves the model's \emph{function}, or about where the averaged iterate settles. Muon's
 step size is independent of gradient magnitude and it equalizes the singular values of each update, so directions with small gradient signal, plausibly the domain-specific ones, receive full-size steps. Over $H$ local steps on
 skewed data this produces local models that are more specialized, which our home-domain measure detects directly. Averaging such models need not cancel much in parameter space (pseudo-gradients are near-orthogonal for every
-method), yet the averaged model can still sit further from the global optimum, which is the fixed-point bias that \citet{takezawa2026fedmuon} analyze for LMO-based local updates and that momentum cannot remove. This account is consistent with all of our measurements but is not tested causally here.
+method), yet the averaged model can still sit further from the global optimum, the fixed-point bias that federated-learning analyses describe~\cite{pathak2020fedsplit,charles2021convergence} and that, for LMO-based local updates, \citet{takezawa2026fedmuon} show momentum cannot remove. This account is consistent with all of our measurements but is not tested causally here.
 
 \paragraph{Confounds we cannot rule out.} (i) MuLoCo's AdamW-managed parameters (embedding, output head, norms) use twice DiLoCo's inner learning rate ($1.5\times10^{-3}$ vs.\ $7.5\times10^{-4}$), as chosen by IID tuning, so part of the extra drift could come from these parameters rather than from Muon itself. (ii) Outer hyperparameters were tuned on IID data; a skew-tuned outer learning rate or momentum might recover some of MuLoCo's penalty. On IID data, MuLoCo's loss also varied less with outer momentum than DiLoCo's (range $0.048$ vs.\ $0.146$ nats over $\mu \in \{0, 0.3, 0.6, 0.9\}$ at $\eta_{\mathrm{out}}=0.8$), suggesting the outer step matters less for Muon even without skew. (iii) MuLoCo reaches lower loss, and absolute penalties at lower loss need not be directly comparable; the equalized $G_{\mathrm{DP}}$ at full skew is one way to read this.
 
@@ -291,7 +337,7 @@ method), yet the averaged model can still sit further from the global optimum, w
 % ======================================================================================================
 \section{Limitations}\label{sec:limitations}
 We study one model scale (51M parameters), one token budget (0.49B), $K=4$ workers, and one synchronization interval ($H=30$); drift is expected to grow with $H$, and the interaction with scale is unknown. Three seeds support
-effect-size statements against a pre-stated rule, not formal significance tests. All hyperparameters were tuned on IID data, by design, to measure how a method tuned in the common setting degrades; this favors neither method a priori but means we do not report best-case non-IID performance. Weight decay is zero. Domains come from two sources and are unevenly distant (Wikipedia is much further from the others than the other three are from each other), so $h$ is not a perfect measure of how different workers' objectives are. The function-space analysis was designed after seeing the parameter-space results and uses three probe rounds. Workers are simulated sequentially, which is computationally equivalent to parallel execution but does not model stragglers or asynchrony.
+effect-size statements against a pre-stated rule, not formal significance tests. Tuning on IID data is deliberate (it measures how methods tuned in the usual setting degrade) but means we do not report best-case non-IID performance. Weight decay is zero. Domains come from two sources and are unevenly distant (Wikipedia is much further from the others than the other three are from each other), so $h$ is not a perfect measure of how different workers' objectives are. The function-space analysis was designed after seeing the parameter-space results and uses three probe rounds. Workers are simulated sequentially, which is computationally equivalent to parallel execution but does not model stragglers or asynchrony.
 
 % ======================================================================================================
 \section{Conclusion}
@@ -315,30 +361,31 @@ Wikipedia dumps, Hugging Face for dataset and model hosting, and PyTorch, includ
 \section{Hyperparameters}\label{app:hparams}
 \begin{table}[!htbp]
   \centering
-  \small
-  \caption{Hyperparameters. Top: settings shared by every run. Bottom: the frozen per-method learning rates and outer-optimizer settings used in all production runs, chosen by IID tuning (\cref{app:tuning}).}
+  \footnotesize
+  \caption{Hyperparameters and why each value was chosen. Top: settings shared by every run. Bottom: the frozen per-method learning rates and outer settings, chosen by IID tuning (\cref{app:tuning}). ``Fixed'' means chosen once, not tuned.}
   \label{tab:hparams}
-  \begin{tabular}{lp{0.66\linewidth}}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{0.2\linewidth}p{0.41\linewidth}p{0.36\linewidth}@{}}
     \toprule
-    Setting & Value \\
+    Setting & Value & Source / reason \\
     \midrule
-    Model & 8 layers, $d=512$, 8 heads (head dim 64), MLP $4\times$ GELU, RoPE, RMSNorm (pre-norm), QK-norm, no biases \\
-    Parameters & 50.93M total; 25.17M non-embedding; 25.17M in Muon-managed matrices \\
-    Vocabulary & GPT-2 (50{,}257, padded to 50{,}304), tied input/output embedding \\
-    Sequence length / batch & 1{,}024 / 64 sequences (65{,}536 tokens) per step \\
-    Steps / tokens & 7{,}500 / 491.5M \\
-    Workers / sync interval & $K=4$, $H=30$ (250 rounds); 16 sequences per worker per step \\
-    LR schedule & 250-step linear warmup, cosine decay to $0.1\times$ peak (indexed by inner step) \\
-    AdamW & $\beta=(0.9, 0.95)$, $\epsilon=10^{-8}$, weight decay 0 \\
-    Muon & Nesterov momentum 0.95, 5 Newton--Schulz steps, AdamW-matched RMS scaling, weight decay 0 \\
-    Gradient clipping & global norm 1.0, per worker per step \\
-    Precision & bf16 autocast; fp32 weights, optimizer and outer state \\
+    Model & 8 layers, $d=512$, 8 heads (head dim 64), MLP $4\times$ GELU, RoPE, RMSNorm (pre-norm), QK-norm, no biases & Fixed. Standard small GPT; size set by the token budget (next rows) \\
+    Parameters & 50.93M total; 25.17M non-embedding; 25.17M in Muon-managed matrices & Follows from the model \\
+    Vocabulary & GPT-2 (50{,}257, padded to 50{,}304), tied input/output embedding & GPT-2 tokenizer~\cite{radford2019gpt2}; padding for GPU efficiency \\
+    Sequence length / batch & 1{,}024 / 64 sequences (65{,}536 tokens) per step & Fixed. GPT-2 context length; batch fits one GPU \\
+    Steps / tokens & 7{,}500 / 491.5M & ${\approx}20$ tokens per non-embedding parameter, near compute-optimal~\cite{hoffmann2022chinchilla} \\
+    Workers / sync interval & $K=4$, $H=30$ (250 rounds); 16 sequences per worker per step & One worker per domain; $H$ is MuLoCo's default~\cite{therien2025muloco}; equal tokens per step for all methods \\
+    LR schedule & 250-step linear warmup, cosine decay to $0.1\times$ peak (indexed by inner step) & Fixed. Standard; decay to $0.1\times$ as in~\cite{hoffmann2022chinchilla} \\
+    AdamW & $\beta=(0.9, 0.95)$, $\epsilon=10^{-8}$, weight decay 0 & $\beta$, $\epsilon$ from GPT-3~\cite{brown2020gpt3}. Weight decay 0 removes a tuning dimension (\cref{sec:limitations}) \\
+    Muon & Nesterov momentum 0.95, 5 Newton--Schulz steps, AdamW-matched RMS scaling, weight decay 0 & Defaults of \citet{jordan2024muon} and \texttt{torch.optim.Muon}; scaling from \citet{liu2025muonscalable} \\
+    Gradient clipping & global norm 1.0, per worker per step & Fixed. As in GPT-3~\cite{brown2020gpt3} \\
+    Precision & bf16 autocast; fp32 weights, optimizer and outer state & Fixed. Standard mixed precision \\
     \midrule
-    DP-AdamW & lr $1.5\times10^{-3}$ \\
-    DP-Muon & Muon lr $1.2\times10^{-2}$; AdamW lr $1.5\times10^{-3}$ (embedding, head, norms) \\
-    DiLoCo & inner lr $7.5\times10^{-4}$; outer lr 0.8, Nesterov momentum 0.6 \\
-    MuLoCo & Muon lr $1.2\times10^{-2}$, AdamW lr $1.5\times10^{-3}$; outer lr 0.8, momentum 0.6 \\
-    FedAvg-AdamW / FedAvg-Muon & inner lrs as DiLoCo / MuLoCo; outer lr 1, momentum 0 \\
+    DP-AdamW & lr $1.5\times10^{-3}$ & Tuned, Stage A \\
+    DP-Muon & Muon lr $1.2\times10^{-2}$; AdamW lr $1.5\times10^{-3}$ (embedding, head, norms) & Tuned, Stage A (AdamW part: DP-AdamW's rate) \\
+    DiLoCo & inner lr $7.5\times10^{-4}$; outer lr 0.8, Nesterov momentum 0.6 & Outer: Stage B; inner: Stage C \\
+    MuLoCo & Muon lr $1.2\times10^{-2}$, AdamW lr $1.5\times10^{-3}$; outer lr 0.8, momentum 0.6 & Outer: Stage B; inner: Stage A, confirmed flat in Stage C \\
+    FedAvg-AdamW / -Muon & inner lrs as DiLoCo / MuLoCo; outer lr 1, momentum 0 & By definition; reusing inner rates changes only the outer step \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -377,7 +424,33 @@ All tuning runs use seed 0 and IID data. Stage A runs are full length; Stages B 
 MuLoCo's three Stage C values differ by less than seed noise, so its Muon rate was kept at the Stage A value. DiLoCo's
 outer setting was chosen before its inner rate was halved and was not re-swept.
 
+\FloatBarrier  % print any pending appendix tables before this section starts
+\section{Diagnostic definitions}\label{app:diagnostics}
+Diagnostics are computed separately for each Muon-managed hidden matrix (the same tensors in every method) and then averaged over matrices. For one matrix, let $\Delta_k$ be worker $k$'s pseudo-gradient and $\sigma_i(\cdot)$ the $i$-th largest singular value.
+\begin{itemize}
+  \item \emph{Every round:} the \emph{norm retention} $\rho_F = \lVert\bar\Delta\rVert_F \big/ \frac1K\sum_k\lVert\Delta_k\rVert_F$, which is 1 for identical workers and $1/\sqrt{K}=0.5$ for orthogonal workers of equal norm; the mean pairwise cosine between the $\Delta_k$; and, for Nesterov runs, the cosine between $\bar\Delta$ and the outer momentum $m$.
+  \item \emph{Every 300 steps:} the \emph{nuclear-norm retention} $\rho_* = \lVert\bar\Delta\rVert_* \big/ \frac1K\sum_k\lVert\Delta_k\rVert_*$ and the normalized \emph{interference gap} of \citet{therien2025muloco},
+  \begin{equation}
+    \mathrm{IG} = \frac{T - \sum_{i \le S}\sigma_i(\bar\Delta)}{T}, \qquad T = \frac1K\sum_{k=1}^{K}\sum_{i \le S}\sigma_i(\Delta_k), \qquad S = \lceil 0.05\min(m,n) \rceil,
+  \end{equation}
+  the share of the workers' top-5\% singular-value mass that is lost when their updates are averaged (0 for identical workers).
+  \item \emph{At 25, 50 and 75\% of training:} (i) the cosine between $\bar\Delta$ and a reference pseudo-gradient from $H$ data-parallel steps on the uniform probe pool, taken from the same starting point with the workers' averaged optimizer state; and (ii) a $4\times4$ \emph{specialization matrix} $S_{kd}$, the validation loss on domain $d$ of worker $k$'s local model at the end of the round, before averaging (on the 256K-token evaluation subsets). From it we compute, post hoc, the \emph{home-domain advantage}
+  \begin{equation}
+    \mathcal{A} = \frac14 \sum_{k=1}^{4} \Big[ \frac13 \sum_{j \neq k} S_{jk} - S_{kk} \Big],
+  \end{equation}
+  how much better each worker's local model is on its own home domain than the other workers' local models are. It is zero in expectation at IID.
+\end{itemize}
+
+\clearpage
 \section{Additional results}\label{app:figures}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=\linewidth]{fig7_diagnostics_vs_h.pdf}
+  \caption{Parameter-space diagnostics on the hidden matrices, averaged over the last 25\% of rounds (mean $\pm$ std over seeds; error bars are smaller than the markers). By these measures, MuLoCo's averaged updates lose less to
+  cancellation than DiLoCo's and degrade less with heterogeneity, the opposite of their loss penalties.}
+  \label{fig:diag}
+\end{figure}
 
 \begin{table}[!htbp]
   \centering
@@ -426,8 +499,7 @@ outer setting was chosen before its inner rate was halved and was not re-swept.
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.75\linewidth]{fig4_domain_heatmap.pdf}
-  \caption{Final per-domain validation loss (mean over seeds). Colour encodes the gap to the best row in each domain.
-  Most of the heterogeneity penalty is on Wikipedia.}
+  \caption{Final per-domain validation loss (mean over seeds). Colour encodes the gap to the best row in each column, which is DP-Muon in every domain. Most of the heterogeneity penalty is on Wikipedia.}
   \label{fig:heatmap}
 \end{figure}
 
@@ -442,7 +514,7 @@ outer setting was chosen before its inner rate was halved and was not re-swept.
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=\linewidth]{fig6_alignment_over_training.pdf}
-  \caption{Norm retention $\rho_F$ and mean pairwise cosine of worker pseudo-gradients over training, per skew level.
+  \caption{Norm retention $\rho_F$ and mean pairwise cosine of worker pseudo-gradients (hidden matrices) over training, per skew level; mean over 3 seeds, smoothed over 10 rounds, with $\pm1$ std bands.
   After the first ${\sim}1{,}000$ steps both methods approach the orthogonal-worker values ($\rho_F \approx 0.5$,
   cosine $\approx 0$) at every skew.}
   \label{fig:alignment}

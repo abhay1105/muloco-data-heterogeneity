@@ -124,12 +124,15 @@ def smooth(v, w):
 # ---------------------------------------------------------------------------- styling
 def style():
     plt.rcParams.update({
-        "font.family": "sans-serif", "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 9,
+        # Figures are drawn at their printed size (NeurIPS text width 5.5in), so these sizes are what readers see.
+        "font.family": "sans-serif", "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
+        "xtick.labelsize": 7, "ytick.labelsize": 7,
         "axes.edgecolor": AXIS, "axes.labelcolor": INK2, "xtick.color": MUTED, "ytick.color": MUTED,
         "xtick.labelcolor": INK2, "ytick.labelcolor": INK2, "axes.spines.top": False, "axes.spines.right": False,
         "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "axes.axisbelow": True,
-        "legend.frameon": False, "legend.fontsize": 8, "lines.linewidth": 1.6, "figure.dpi": 150,
-        "savefig.bbox": "tight", "figure.facecolor": "white", "axes.titlecolor": INK,
+        "legend.frameon": False, "legend.fontsize": 7, "lines.linewidth": 1.4, "figure.dpi": 200,
+        "savefig.bbox": "tight", "savefig.pad_inches": 0.02, "figure.facecolor": "white", "axes.titlecolor": INK,
+        "legend.handlelength": 1.6, "legend.labelspacing": 0.3, "axes.titlepad": 3,
     })
 
 
@@ -149,7 +152,7 @@ def band(ax, x, m, s, color, ls="-", label=None, alpha=0.18, lw=1.6):
 # ---------------------------------------------------------------------------- figures
 def fig_loss_curves(runs, out):
     """Train and validation loss over training: DiLoCo | MuLoCo, one line per p, DP reference dotted."""
-    fig, axes = plt.subplots(2, 2, figsize=(9, 6), sharex=True, sharey="row")
+    fig, axes = plt.subplots(2, 2, figsize=(5.5, 3.3), sharex=True, sharey="row")
     for col, method in enumerate(("diloco", "muloco")):
         inner, _, label = METHOD[method]
         dp = "dp_" + inner
@@ -164,27 +167,26 @@ def fig_loss_curves(runs, out):
                 x, m, s = st[0], st[1], st[2]
                 if which == "train":
                     m, s = smooth(m, 10), smooth(s, 10)
-                band(ax, x, m, s, RAMP[inner][i], label=f"p={p:g} (h={h_of(p):.2f}), n={st[3]}")
+                band(ax, x, m, s, RAMP[inner][i], lw=1.2, label=f"p={p:g}" + (" (IID)" if p == 0.25 else ""))
             rs = [r for (m, _, _), r in runs.items() if m == dp]
             if rs:
                 st = stack([r.series("train", "loss") for r in rs] if which == "train" else [r.val_curve() for r in rs])
                 m, s = (smooth(st[1], 20), smooth(st[2], 20)) if which == "train" else (st[1], st[2])  # DP logs single steps
-                band(ax, st[0], m, s, INK2, ls=":", label=f"{METHOD[dp][2]} (1 worker), n={st[3]}", alpha=0.12)
-            ax.set_title(f"{label}: {'train loss (smoothed)' if which == 'train' else 'val loss (balanced, eval subsets)'}",
-                         loc="left")
+                band(ax, st[0], m, s, INK2, ls=":", lw=1.2, label=METHOD[dp][2], alpha=0.12)
+            ax.set_title(f"{label}: {'training loss' if which == 'train' else 'validation loss'}", loc="left")
             ax.set_ylim(2.1, 3.6)
             if col == 0:
                 ax.set_ylabel("loss (nats/token)")
             if row == 1:
                 ax.set_xlabel("step")
-            ax.legend(loc="upper right")
-    fig.suptitle("Loss over training by heterogeneity level (mean ± std over seeds)", x=0.01, ha="left", color=INK)
+            if row == 0:
+                ax.legend(loc="upper right")
     save(fig, out, "fig1_loss_curves")
 
 
 def fig_loss_curves_e2(runs, out):
     """E2: FedAvg (dashed) vs Nesterov (solid) at p=0.25 (light) and p=1.0 (dark), per inner optimizer."""
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.4), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(5.5, 2.2), sharey=True)
     for ax, inner in zip(axes, ("adamw", "muon")):
         for method in [m for m, v in METHOD.items() if v[0] == inner and v[1] != "dp"]:
             outer = METHOD[method][1]
@@ -193,8 +195,8 @@ def fig_loss_curves_e2(runs, out):
                 if rs:
                     st = stack([r.val_curve() for r in rs])
                     band(ax, st[0], st[1], st[2], RAMP[inner][shade], ls=STYLE[outer],
-                         label=f"{METHOD[method][2]}, p={p:g}, n={st[3]}")
-        ax.set_title(f"inner {'AdamW' if inner == 'adamw' else 'Muon'}: validation loss", loc="left")
+                         lw=1.2, label=f"{METHOD[method][2]}, p={p:g}")
+        ax.set_title(f"inner {'AdamW' if inner == 'adamw' else 'Muon'}", loc="left")
         ax.set_xlabel("step")
         ax.set_ylim(2.1, 3.6)
         ax.legend(loc="upper right")
@@ -203,24 +205,23 @@ def fig_loss_curves_e2(runs, out):
 
 
 def fig_final_vs_h(runs, out):
-    fig, ax = plt.subplots(figsize=(5.2, 3.6))
+    fig, ax = plt.subplots(figsize=(2.7, 2.1))
     hs = np.array([h_of(p) for p in PS])
     for method in ("diloco", "muloco"):
         inner = METHOD[method][0]
         st = [ms(final(runs, method, p).values()) for p in PS]
         m, s = np.array([x[0] for x in st]), np.array([x[1] for x in st])
         ok = np.isfinite(m)
-        ax.errorbar(hs[ok], m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=5, capsize=3, lw=1.6,
+        ax.errorbar(hs[ok], m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=4, capsize=2, lw=1.3,
                     label=METHOD[method][2])
         dm, ds, dn = ms(final(runs, "dp_" + inner, None).values())
         if dn:
             ax.axhspan(dm - ds, dm + ds, color=HUE[inner], alpha=0.12, lw=0)
-            ax.axhline(dm, color=HUE[inner], ls=":", lw=1.2, label=f"{METHOD['dp_' + inner][2]} (1 worker)")
+            ax.axhline(dm, color=HUE[inner], ls=":", lw=1.1, label=METHOD['dp_' + inner][2])
     ax.set_xticks(hs, [f"{h:.2f}\n(p={p:g})" for h, p in zip(hs, PS)])
-    ax.set_xlabel("heterogeneity h (TV distance to the global mixture)")
-    ax.set_ylabel("final validation loss (balanced)")
-    ax.set_title("Final loss vs heterogeneity (mean ± std over seeds)", loc="left")
-    ax.legend()
+    ax.set_xlabel("heterogeneity h")
+    ax.set_ylabel("final validation loss (nats)")
+    ax.legend(loc="upper left", ncol=2, columnspacing=0.8)
     save(fig, out, "fig2_final_vs_h")
 
 
@@ -242,7 +243,7 @@ def slope(runs, method):
 
 
 def fig_delta_het(runs, out):
-    fig, ax = plt.subplots(figsize=(5.2, 3.6))
+    fig, ax = plt.subplots(figsize=(2.7, 2.1))
     hs = np.array([h_of(p) for p in PS])
     for j, method in enumerate(("diloco", "muloco")):
         inner = METHOD[method][0]
@@ -250,14 +251,13 @@ def fig_delta_het(runs, out):
         m, s = np.array([x[0] for x in st]), np.array([x[1] for x in st])
         ok = np.isfinite(m)
         off = (j - 0.5) * 0.012  # small horizontal dodge so error bars don't overlap
-        ax.errorbar(hs[ok] + off, m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=5, capsize=3, lw=1.6,
-                    label=f"{METHOD[method][2]} (slope {slope(runs, method):.3f} per unit h)")
+        ax.errorbar(hs[ok] + off, m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=4, capsize=2, lw=1.3,
+                    label=f"{METHOD[method][2]} (slope {slope(runs, method):.3f})")
     ax.axhline(0, color=AXIS, lw=1)
     ax.set_xticks(hs, [f"{h:.2f}\n(p={p:g})" for h, p in zip(hs, PS)])
     ax.set_xlabel("heterogeneity h")
-    ax.set_ylabel("ΔL_het = L(h) − L(IID)")
-    ax.set_title("Heterogeneity penalty (paired by seed, mean ± std)", loc="left")
-    ax.legend()
+    ax.set_ylabel("penalty ΔL_het (nats)")
+    ax.legend(loc="upper left")
     save(fig, out, "fig3_delta_het")
 
 
@@ -274,18 +274,17 @@ def fig_domain_heatmap(runs, out):
         return
     a = np.array(rows)
     rel = a - np.nanmin(a, axis=0, keepdims=True)  # colour = gap to the best row in that domain
-    fig, ax = plt.subplots(figsize=(5.6, 0.32 * len(rows) + 1.2))
+    fig, ax = plt.subplots(figsize=(4.2, 0.22 * len(rows) + 0.6))
     im = ax.imshow(rel, cmap="Blues", aspect="auto", vmin=0)
     for i in range(a.shape[0]):
         for j in range(a.shape[1]):
             if np.isfinite(a[i, j]):
-                ax.text(j, i, f"{a[i, j]:.3f}", ha="center", va="center", fontsize=7.5,
+                ax.text(j, i, f"{a[i, j]:.3f}", ha="center", va="center", fontsize=6.5,
                         color="white" if rel[i, j] > 0.6 * np.nanmax(rel) else INK)
     ax.set_xticks(range(4), [DOMAIN_LABEL[d] for d in DOMAINS])
     ax.set_yticks(range(len(labels)), labels)
     ax.grid(False)
-    ax.set_title("Final per-domain validation loss (mean over seeds)", loc="left")
-    fig.colorbar(im, ax=ax, label="gap to best row in domain", shrink=0.8)
+    fig.colorbar(im, ax=ax, label="gap to best row in column", shrink=0.9)
     save(fig, out, "fig4_domain_heatmap")
 
 
@@ -299,7 +298,7 @@ def rescue(runs, inner):
 
 
 def fig_e2_bars(runs, out):
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(9, 3.4))
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(5.5, 2.1))
     groups = [("adamw", "fedavg"), ("adamw", "nesterov"), ("muon", "fedavg"), ("muon", "nesterov")]
     name = {("adamw", "fedavg"): "fedavg_adamw", ("adamw", "nesterov"): "diloco",
             ("muon", "fedavg"): "fedavg_muon", ("muon", "nesterov"): "muloco"}
@@ -316,8 +315,7 @@ def fig_e2_bars(runs, out):
     vals = [b.get_height() for b in a1.patches]
     if vals:
         a1.set_ylim(min(vals) - 0.1, max(vals) + 0.08)
-    a1.set_ylabel("final validation loss")
-    a1.set_title("Final loss; hatched = FedAvg", loc="left")
+    a1.set_ylabel("final validation loss (nats)")
     a1.legend(handles=[plt.Rectangle((0, 0), 1, 1, color=INK2, alpha=a) for a in (0.45, 1.0)],
               labels=["p=0.25 (IID)", "p=1.0"], loc="upper right")
     for i, g in enumerate(groups):
@@ -328,14 +326,14 @@ def fig_e2_bars(runs, out):
                    edgecolor="white", lw=0)
     a2.axhline(0, color=AXIS, lw=1)
     a2.set_xticks(x, [b.get_text() for b in a1.get_xticklabels()])
-    a2.set_ylabel("L(p=1.0) − L(p=0.25)")
-    a2.set_title("Heterogeneity penalty (paired by seed)", loc="left")
+    a2.set_ylabel("penalty, p=1 minus IID (nats)")
+    fig.subplots_adjust(wspace=0.38)
     save(fig, out, "fig5_e2_outer_momentum")
 
 
 def fig_diag_over_training(runs, out):
-    keys = [("rho_F/all", "norm retention ρ_F"), ("pair_cos/all", "pairwise cosine of worker updates")]
-    fig, axes = plt.subplots(2, 4, figsize=(11, 4.8), sharex=True, sharey="row")
+    keys = [("rho_F/all", "norm retention ρ_F"), ("pair_cos/all", "pairwise cosine")]
+    fig, axes = plt.subplots(2, 4, figsize=(5.5, 2.9), sharex=True, sharey="row")
     for col, p in enumerate(PS):
         for row, (k, lab) in enumerate(keys):
             ax = axes[row, col]
@@ -344,7 +342,7 @@ def fig_diag_over_training(runs, out):
                 rs = [r for (m, pp, _), r in runs.items() if m == method and pp == p]
                 if rs:
                     st = stack([r.series("diag", k) for r in rs])
-                    band(ax, st[0], smooth(st[1], 10), smooth(st[2], 10), HUE[inner], label=METHOD[method][2])
+                    band(ax, st[0], smooth(st[1], 10), smooth(st[2], 10), HUE[inner], lw=1.1, label=METHOD[method][2])
             if row == 0:
                 ax.set_title(f"p={p:g} (h={h_of(p):.2f})", loc="left")
             if col == 0:
@@ -352,15 +350,15 @@ def fig_diag_over_training(runs, out):
             if row == 1:
                 ax.set_xlabel("step")
     axes[0, 0].legend()
-    fig.suptitle("Worker-update alignment over training (hidden matrices; smoothed over 10 rounds; mean ± std over seeds)",
-                 x=0.01, ha="left", color=INK)
+    for ax in axes[1]:
+        ax.tick_params(axis="x", labelrotation=30)
     save(fig, out, "fig6_alignment_over_training")
 
 
 def fig_spectral_vs_h(runs, out):
-    keys = [("rho_F/all", "ρ_F (late 25%)"), ("rho_nuc/all", "nuclear retention ρ_* (late 25%)"),
-            ("interference_gap/all", "interference gap G_S (late 25%)")]
-    fig, axes = plt.subplots(1, 3, figsize=(11, 3.2))
+    keys = [("rho_F/all", "norm retention ρ_F"), ("rho_nuc/all", "nuclear retention ρ_*"),
+            ("interference_gap/all", "interference gap")]
+    fig, axes = plt.subplots(1, 3, figsize=(5.5, 1.9))
     hs = np.array([h_of(p) for p in PS])
     for ax, (k, lab) in zip(axes, keys):
         for j, method in enumerate(("diloco", "muloco")):
@@ -368,12 +366,13 @@ def fig_spectral_vs_h(runs, out):
             st = [ms([r.late_mean(k) for (m, pp, _), r in runs.items() if m == method and pp == p]) for p in PS]
             m, s = np.array([x[0] for x in st]), np.array([x[1] for x in st])
             ok = np.isfinite(m)
-            ax.errorbar(hs[ok] + (j - 0.5) * 0.012, m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=5,
-                        capsize=3, lw=1.6, label=METHOD[method][2])
+            ax.errorbar(hs[ok] + (j - 0.5) * 0.012, m[ok], yerr=s[ok], color=HUE[inner], marker="o", ms=4,
+                        capsize=2, lw=1.3, label=METHOD[method][2])
         ax.set_xticks(hs, [f"{h:.2f}" for h in hs])
         ax.set_xlabel("heterogeneity h")
         ax.set_title(lab, loc="left")
     axes[0].legend()
+    fig.subplots_adjust(wspace=0.42)
     save(fig, out, "fig7_diagnostics_vs_h")
 
 
@@ -390,7 +389,7 @@ def fig_specialization(runs, out, p=1.0, seed=0):
                                                            for k in range(4)])))
     if not panels:
         return
-    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 3.6), squeeze=False,
+    fig, axes = plt.subplots(1, len(panels), figsize=(5.5, 2.4), squeeze=False,
                              gridspec_kw={"wspace": 0.08})
     vmin = min(a.min() for *_, a in panels)
     vmax = max(a.max() for *_, a in panels)
@@ -398,15 +397,14 @@ def fig_specialization(runs, out, p=1.0, seed=0):
         im = ax.imshow(a, cmap="Blues", vmin=vmin, vmax=vmax)
         for i in range(4):
             for j in range(4):
-                ax.text(j, i, f"{a[i, j]:.2f}", ha="center", va="center", fontsize=8,
+                ax.text(j, i, f"{a[i, j]:.2f}", ha="center", va="center", fontsize=7,
                         color="white" if a[i, j] > vmin + 0.6 * (vmax - vmin) else INK)
         ax.set_xticks(range(4), [DOMAIN_LABEL[d] for d in DOMAINS])
-        ax.set_yticks(range(4), [f"worker {k}\n(home {DOMAIN_LABEL[d]})" for k, d in enumerate(DOMAINS)] if col == 0 else [])
+        ax.set_yticks(range(4), [f"worker {k} ({DOMAIN_LABEL[d]})" for k, d in enumerate(DOMAINS)] if col == 0 else [])
         ax.set_xlabel("evaluated on")
         ax.grid(False)
-        ax.set_title(f"{METHOD[method][2]}, p={p:g}, step {step}", loc="left")
-    fig.colorbar(im, ax=axes[0].tolist(), label="local-model validation loss", shrink=0.8)
-    fig.suptitle(f"Worker specialization before averaging (seed {seed}, last probe round)", x=0.01, ha="left", color=INK)
+        ax.set_title(METHOD[method][2], loc="left")
+    fig.colorbar(im, ax=axes[0].tolist(), label="local-model loss (nats)", shrink=0.9)
     save(fig, out, "fig8_specialization")
 
 
@@ -427,7 +425,7 @@ def home_advantage(run, last_only=True):
 
 
 def fig_home_advantage(runs, out):
-    fig, ax = plt.subplots(figsize=(5.2, 3.6))
+    fig, ax = plt.subplots(figsize=(3.0, 2.1))
     hs = np.array([h_of(p) for p in PS])
     for j, method in enumerate(("diloco", "muloco", "fedavg_adamw", "fedavg_muon")):
         inner, outer, label = METHOD[method]
@@ -437,13 +435,12 @@ def fig_home_advantage(runs, out):
         ax.errorbar(hs[ok] + (j - 1.5) * 0.008, m[ok], yerr=s[ok], color=HUE[inner],
                     ls="none" if outer == "fedavg" else STYLE[outer],  # FedAvg ran at p=0.25 and 1.0 only
                     marker="o" if outer == "nesterov" else "s", mfc="white" if outer == "fedavg" else HUE[inner],
-                    ms=5, capsize=3, lw=1.6, label=label)
+                    ms=4, capsize=2, lw=1.3, label=label)
     ax.axhline(0, color=AXIS, lw=1)
     ax.set_xticks(hs, [f"{h:.2f}\n(p={p:g})" for h, p in zip(hs, PS)])
     ax.set_xlabel("heterogeneity h")
     ax.set_ylabel("home-domain advantage (nats)")
-    ax.set_title("Worker specialization within a round (75% of training)", loc="left")
-    ax.legend()
+    ax.legend(loc="upper left")
     save(fig, out, "fig9_home_advantage")
 
 
