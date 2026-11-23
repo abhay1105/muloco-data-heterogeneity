@@ -1,5 +1,5 @@
 """CPU-only Modal app that builds the tokenized data volume (kept separate from the GPU app so it can
-run without GPU access / before a payment method is on file).
+run without GPU access).
 
     modal run modal_prepare.py            # ~20-40 min of CPU; prints data_hash (must be 33c0c658fbf49a8a)
     modal run modal_prepare.py --force    # rebuild

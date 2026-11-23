@@ -1,4 +1,4 @@
-"""Correctness tests (EXPERIMENT_DESIGN.md §10.3). Run locally: `pytest -q`."""
+"""Correctness tests. Run locally: `pytest -q`."""
 import json
 import os
 

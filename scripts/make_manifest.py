@@ -1,4 +1,5 @@
-"""Write run manifests (one run's CLI args per line) for each stage of EXPERIMENT_DESIGN.md §5-6.
+"""Write run manifests (one run's CLI args per line) for each stage:
+tuning (pilot, Stages A-C; IID data) and the production grid (phase2).
 
     python scripts/make_manifest.py pilot
     python scripts/make_manifest.py stageA [--adamw_lrs ...] [--muon_lrs ...] [--muon_adam_lr X]
@@ -47,7 +48,7 @@ def main():
     ap.add_argument("--diloco_outer", default=None, help="LR,MU best for diloco from stage B")
     ap.add_argument("--muloco_outer", default=None, help="LR,MU best for muloco from stage B")
     ap.add_argument("--batch2_parts", type=int, default=1,
-                    help="split phase2 batch 2 (seeds 1-2) into N smaller launches, e.g. to fit a spend limit")
+                    help="split phase2 batch 2 (seeds 1-2) into N smaller launches")
     a = ap.parse_args()
 
     if a.stage == "pilot":
@@ -96,7 +97,7 @@ def main():
     elif a.stage == "phase2":
         assert os.path.exists("configs/frozen.yaml"), "write configs/frozen.yaml first (end of Phase 1)"
         cfg = "--config configs/frozen.yaml"
-        order = []  # seed 0 of everything first, then remaining seeds (EXPERIMENT_DESIGN.md §6.1)
+        order = []  # seed 0 of everything first, then remaining seeds
         for seed in (0, 1, 2):
             for method in ("diloco", "muloco"):
                 for p in ("0.25", "0.5", "0.75", "1.0"):

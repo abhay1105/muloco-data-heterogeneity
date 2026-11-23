@@ -1,4 +1,4 @@
-"""Token storage and batch construction (EXPERIMENT_DESIGN.md §3.4).
+"""Token storage and batch construction.
 
 All four domains' token files are loaded into RAM (~1 GB at full size). A *pool* is an (N, 2) array of
 (domain, sequence-index) rows. Sequence s of a split covers tokens [s*L, s*L + L + 1).

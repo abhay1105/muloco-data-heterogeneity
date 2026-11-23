@@ -1,4 +1,4 @@
-"""Modal wrapper (EXPERIMENT_DESIGN.md §6.2-6.3). The training code itself is platform-independent.
+"""Modal wrapper for running training on cloud GPUs. The training code itself is platform-independent.
 
 One-time setup (once per Modal workspace):
     pip install modal && modal setup

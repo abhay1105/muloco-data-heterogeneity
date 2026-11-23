@@ -1,6 +1,6 @@
 """Inner optimizers (per worker) and the LR schedule.
 
-Parameter split (§5.1): hidden 2-D block matrices -> Muon (Muon arms) or AdamW (AdamW arms);
+Parameter split: hidden 2-D block matrices -> Muon (Muon arms) or AdamW (AdamW arms);
 embedding/LM head and RMSNorm gains -> AdamW in every arm.
 """
 from __future__ import annotations

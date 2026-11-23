@@ -1,6 +1,6 @@
 """Download, filter, split and tokenize the four domains into flat uint16 token files.
 
-Output layout (EXPERIMENT_DESIGN.md §3):
+Output layout:
     <out>/{domain}_{train,val,probe}.bin   uint16 GPT-2 tokens, documents separated by <|endoftext|>
     <out>/meta.json                        sizes, source revisions, sha256 of every .bin
 

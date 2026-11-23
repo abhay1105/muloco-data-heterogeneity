@@ -1,4 +1,4 @@
-"""GPT-style decoder (EXPERIMENT_DESIGN.md §9): pre-norm RMSNorm, RoPE, QK-norm, no biases,
+"""GPT-style decoder: pre-norm RMSNorm, RoPE, QK-norm, no biases,
 GELU MLP, tied input embedding / LM head.
 
 q, k, v, o are separate Linear layers so that Muon orthogonalizes each one on its own, and so the

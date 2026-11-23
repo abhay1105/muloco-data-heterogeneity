@@ -1,4 +1,4 @@
-"""Summarize finished runs into a markdown table (for pasting into RESULTS.md).
+"""Summarize finished runs into a markdown table.
 
     python analysis/summarize.py                    # all runs in runs/
     python analysis/summarize.py "dp_adamw_s0_lr*"  # glob over run ids

@@ -1,7 +1,7 @@
 """Run configuration: one dataclass, filled from defaults <- optional YAML (--config) <- CLI flags.
 
-Defaults follow EXPERIMENT_DESIGN.md §5.1. Tuned values (inner LRs, outer lr/momentum) are written to
-configs/frozen.yaml after Phase 1 and passed with --config.
+Defaults are the fixed (untuned) hyperparameters shared by every run. Tuned values (inner LRs, outer
+lr/momentum) live in configs/frozen.yaml and are passed with --config.
 """
 from __future__ import annotations
 

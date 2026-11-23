@@ -1,4 +1,4 @@
-"""Pseudo-gradient diagnostics (EXPERIMENT_DESIGN.md §7).
+"""Pseudo-gradient diagnostics (definitions: paper, Appendix C).
 
 All functions take `deltas`: {param_name: Tensor[K, m, n]} holding each worker's pseudo-gradient
 Delta_k = theta_outer - theta_k for the hidden 2-D matrices. Metrics are computed per matrix, then

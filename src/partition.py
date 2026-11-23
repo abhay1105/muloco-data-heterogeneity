@@ -1,4 +1,4 @@
-"""Deterministic domain-skew partition (EXPERIMENT_DESIGN.md §3.3-3.4).
+"""Deterministic domain-skew partition.
 
 Worker k has home domain k. It receives fraction p of its sequences from domain k and (1-p)/3 from
 each other domain. Every domain's training sequences are split exactly once across the workers, so

@@ -2,7 +2,7 @@
 
     python -m src.train --method muloco --p 1.0 --seed 0 [--config configs/frozen.yaml] [...]
 
-Local mode simulates K workers sequentially on one device (EXPERIMENT_DESIGN.md §10.2): one model,
+Local mode simulates K workers sequentially on one device: one model,
 one inner optimizer per worker (persistent state), fp32 outer parameters + outer SGD/Nesterov.
 
 Outputs in <out_dir>/<run_id>/: config.json, metrics.jsonl, summary.json (written last = completion

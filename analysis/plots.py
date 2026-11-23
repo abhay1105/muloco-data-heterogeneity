@@ -1,4 +1,4 @@
-"""Report figures and hypothesis tables from Phase 2 runs (EXPERIMENT_DESIGN.md §8).
+"""Report figures and hypothesis tables from the production runs.
 
     .venv/bin/python analysis/plots.py                       # reads runs/, writes figures/
     .venv/bin/python analysis/plots.py --runs X --out Y

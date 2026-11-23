@@ -4,7 +4,7 @@ __pycache__/
 .DS_Store
 data_bin/
 data_tiny/
-# model checkpoints live in the Modal volume `muloco-runs`; only small run logs are versioned
+# model checkpoints (~102 MB each) are on Hugging Face; only the small run logs are versioned
 *.pt
 report/*.aux
 report/*.bbl
@@ -12,3 +12,8 @@ report/*.blg
 report/*.log
 report/*.out
 report/*.synctex.gz
+
+# internal working notes and the course proposal (kept locally, not published)
+EXPERIMENT_DESIGN.md
+RESULTS.md
+EECS_182_Final_Project_Proposal_*.pdf
