@@ -2,7 +2,7 @@
 
 Abhay Paidipalli, Ethan Liu, Logan Wall, Prabhnoor Rai (equal contribution). UC Berkeley, EECS 182 final project, Fall 2026.
 
-**Paper:** [`report/main.tex`](report/main.tex) (NeurIPS 2026 style). **Checkpoints:** [Hugging Face](https://huggingface.co/paidvenk/muloco-data-heterogeneity).
+**Checkpoints:** [Hugging Face](https://huggingface.co/paidvenk/muloco-data-heterogeneity).
 
 DiLoCo trains a language model on several workers that take many local optimizer steps between synchronizations;
 MuLoCo replaces DiLoCo's inner AdamW with Muon and improves on it, but both were studied only with workers that see
@@ -57,9 +57,6 @@ cd muloco-data-heterogeneity
 uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt
 .venv/bin/python analysis/plots.py     # writes figures/*.png, figures/*.pdf and figures/summary.md
 ```
-
-To compile the paper, upload `report/` and `figures/` to Overleaf (or run
-`pdflatex main && bibtex main && pdflatex main && pdflatex main` inside `report/`).
 
 ## Checkpoints
 
